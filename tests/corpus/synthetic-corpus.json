@@ -1,0 +1,14 @@
+[
+  {
+    "text": "Договор купли-продажи. Продавец: Иванов Петр Сергеевич, ИНН 500100732259, СНИЛС 112-233-445 95.",
+    "expected": ["PERSON", "RU_INN", "RU_SNILS"]
+  },
+  {
+    "text": "My email is john.doe@provider.com and phone is +12345678901",
+    "expected": ["EMAIL", "PHONE"]
+  },
+  {
+    "text": "The secret token is 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.Et9z_o_p_0897867564534231'",
+    "expected": ["SECRET_JWT"]
+  }
+]
