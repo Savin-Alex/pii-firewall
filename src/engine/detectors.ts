@@ -164,7 +164,7 @@ export const detectors: Detector[] = [
   {
     type: 'IBAN',
     detect: (text) => {
-      const regex = /\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/g;
+      const regex = /\b[A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30}\b/g;
       return Array.from(text.matchAll(regex))
         .filter(m => validateIBAN(m[0]))
         .map(m => ({

@@ -3,16 +3,10 @@ import { resolve } from 'path';
 
 export default defineConfig({
   build: {
-    rollupOptions: {
-      input: {
-        popup: resolve(__dirname, 'popup/popup.html'),
-        options: resolve(__dirname, 'options/options.html'),
-        background: resolve(__dirname, 'src/background/index.ts'),
-        content: resolve(__dirname, 'src/content/index.ts')
-      },
-      output: {
-        entryFileNames: '[name].js'
-      }
+    lib: {
+      entry: resolve(__dirname, 'src/engine/engine.ts'),
+      formats: ['es'],
+      fileName: 'engine'
     }
   },
   test: {

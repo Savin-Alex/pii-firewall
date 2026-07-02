@@ -35,8 +35,10 @@ describe('Checksums', () => {
     // Valid synthetic IBAN (mod 97 === 1)
     expect(validateIBAN('DE89370400440532013000')).toBe(true);
     expect(validateIBAN('GB82WEST12345698765432')).toBe(true);
+    expect(validateIBAN('GB82 WEST 1234 5698 7654 32')).toBe(true);
     // Invalid check digits
     expect(validateIBAN('DE61370400440532013000')).toBe(false);
+    expect(validateIBAN('GB82WEST12345698765433')).toBe(false);
     expect(validateIBAN('DE00370400440532013000')).toBe(false);
   });
 });

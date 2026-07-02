@@ -1,14 +1,52 @@
 [
   {
     "text": "Договор купли-продажи. Продавец: Иванов Петр Сергеевич, ИНН 500100732259, СНИЛС 112-233-445 95.",
-    "expected": ["PERSON", "RU_INN", "RU_SNILS"]
+    "expected": [
+      { "type": "PERSON", "value": "Иванов Петр Сергеевич" },
+      { "type": "RU_INN", "value": "500100732259" },
+      { "type": "RU_SNILS", "value": "112-233-445 95" }
+    ]
   },
   {
-    "text": "My email is john.doe@provider.com and phone is +12345678901",
-    "expected": ["EMAIL", "PHONE"]
+    "text": "Связь: john.doe@provider.com, телефон +7 (999) 123-45-67, IP 192.168.1.10.",
+    "expected": [
+      { "type": "EMAIL", "value": "john.doe@provider.com" },
+      { "type": "PHONE", "value": "+7 (999) 123-45-67" },
+      { "type": "IP_ADDRESS", "value": "192.168.1.10" }
+    ]
   },
   {
-    "text": "The secret token is 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.Et9z_o_p_0897867564534231'",
-    "expected": ["SECRET_JWT"]
+    "text": "Платежные данные: карта 4111 1111 1111 1111, IBAN GB82 WEST 1234 5698 7654 32.",
+    "expected": [
+      { "type": "CARD", "value": "4111 1111 1111 1111" },
+      { "type": "IBAN", "value": "GB82 WEST 1234 5698 7654 32" }
+    ]
+  },
+  {
+    "text": "Регистрация: ОГРН 1027700132195, паспорт 4510 123456 выдан отделом.",
+    "expected": [
+      { "type": "RU_OGRN", "value": "1027700132195" },
+      { "type": "RU_PASSPORT", "value": "4510 123456" }
+    ]
+  },
+  {
+    "text": "Медкарта: полис ОМС 4111111111111111 оформлен на Петрова Анна Сергеевна.",
+    "expected": [
+      { "type": "RU_OMS", "value": "4111111111111111" },
+      { "type": "PERSON", "value": "Петрова Анна Сергеевна" }
+    ]
+  },
+  {
+    "text": "Secrets: AWS AKIAIOSFODNN7EXAMPLE, JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.Et9z_o_p_0897867564534231.",
+    "expected": [
+      { "type": "SECRET_AWS", "value": "AKIAIOSFODNN7EXAMPLE" },
+      { "type": "SECRET_JWT", "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.Et9z_o_p_0897867564534231" }
+    ]
+  },
+  {
+    "text": "Credentials: password=\"f47ac10b58cc4372a5670e02b2c3d479\".",
+    "expected": [
+      { "type": "SECRET_KV", "value": "f47ac10b58cc4372a5670e02b2c3d479" }
+    ]
   }
 ]

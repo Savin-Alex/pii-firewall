@@ -4,7 +4,7 @@ import { detectPersonRu } from '../src/engine/person_ru';
 import { EngineConfig } from '../src/engine/types';
 
 const defaultConfig: EngineConfig = {
-  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_OMS', 'IBAN', 'IP_ADDRESS'],
+  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_OMS', 'IBAN', 'IP_ADDRESS', 'PERSON', 'SECRET'],
   minConfidence: 'medium',
   language: 'auto'
 };
@@ -43,5 +43,19 @@ describe('Engine Detection', () => {
     const text = 'API_KEY: "ak_test_51MzBy8L2QW9asdfghjkl12345"';
     const results = detect(text, defaultConfig);
     expect(results.some(d => d.type === 'SECRET_KV')).toBe(true);
+  });
+
+  it('should not detect secrets when disabled', () => {
+    const text = 'API_KEY: "ak_test_51MzBy8L2QW9asdfghjkl12345"';
+    const results = detect(text, { ...defaultConfig, enabledTypes: ['EMAIL'] });
+    expect(results.some(d => d.type.startsWith('SECRET_'))).toBe(false);
+  });
+
+  it('should detect normalized candidates and keep original spans', () => {
+    const text = 'Card: ４１１１１１１１１１１１１１１１';
+    const results = detect(text, defaultConfig);
+    const card = results.find(d => d.type === 'CARD');
+    expect(card?.value).toBe('４１１１１１１１１１１１１１１１');
+    expect(card?.start).toBe(6);
   });
 });
