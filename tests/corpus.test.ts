@@ -5,7 +5,7 @@ import { EngineConfig } from '../src/engine/types';
 import corpus from './corpus/synthetic-corpus.json';
 
 const config: EngineConfig = {
-  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_OMS', 'IBAN', 'IP_ADDRESS', 'PERSON', 'SECRET'],
+  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_OMS', 'IBAN', 'US_SSN', 'IP_ADDRESS', 'PERSON', 'SECRET'],
   minConfidence: 'medium',
   language: 'auto'
 };

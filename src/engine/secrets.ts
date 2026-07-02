@@ -32,10 +32,17 @@ export const secretDetectors = {
       });
     }
 
-    // HIGH_ENTROPY (Shannon entropy > 4.0)
-    const entropyRegex = /\b[A-Za-z0-9+/]{32,}\b|\b[a-f0-9]{32,}\b/g;
+    // HIGH_ENTROPY. Hex alphabet caps Shannon entropy at exactly 4.0 bits,
+    // so hex strings get their own threshold; base64-like keeps 4.0.
+    const entropyRegex = /\b[A-Za-z0-9+/]{32,}\b/g;
     for (const m of text.matchAll(entropyRegex)) {
-      if (calculateEntropy(m[0]) > 4.0) {
+      const isHex = /^[a-f0-9]+$/i.test(m[0]);
+      const threshold = isHex ? 3.3 : 4.0;
+      // Git SHAs and file checksums are random hex too — skip explicitly labeled ones.
+      if (isHex && /(?:commit|sha-?\d*|hash|md5|checksum|хеш|коммит)[\s:=#"'«]*$/i.test(text.substring(Math.max(0, m.index! - 20), m.index!))) {
+        continue;
+      }
+      if (calculateEntropy(m[0]) > threshold) {
         results.push({ type: 'SECRET_ENTROPY', start: m.index!, end: m.index! + m[0].length, value: m[0], confidence: 'medium', validator: 'heuristic' });
       }
     }

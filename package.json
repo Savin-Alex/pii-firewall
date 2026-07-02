@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "gen:corpus": "vite-node scripts/generate-corpus.ts"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",

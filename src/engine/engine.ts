@@ -1,5 +1,5 @@
 import { Detection, EngineConfig, Confidence } from './types';
-import { NormalizedText, normalizeWithMap } from './normalize';
+import { NormalizedText, normalizeWithMap, canonicalizeHomoglyphs } from './normalize';
 import { detectors } from './detectors';
 import { secretDetectors } from './secrets';
 import { detectPersonRu } from './person_ru';
@@ -23,18 +23,24 @@ const TYPE_PRIORITY: Record<string, number> = {
 export function detect(text: string, config: EngineConfig): Detection[] {
   const normalized = normalizeWithMap(text);
   const scanText = normalized.text;
+  // Homoglyph folding is 1:1 per char, so folded offsets equal normalized offsets.
+  const foldedText = canonicalizeHomoglyphs(scanText, 'en');
   let allDetections: Detection[] = [];
 
-  // 1. Run all detectors
+  // 1. Run all detectors on the view(s) they declare
   for (const detector of detectors) {
     if (config.enabledTypes.includes(detector.type)) {
-      allDetections.push(...remapDetections(detector.detect(scanText), text, normalized));
+      const views = detector.scanView === 'folded' ? [foldedText]
+        : detector.scanView === 'both' ? [scanText, foldedText]
+        : [scanText];
+      const detections = dedupeBySpan(views.flatMap(view => detector.detect(view)));
+      allDetections.push(...remapDetections(detections, text, normalized));
     }
   }
 
   if (shouldRunSecretDetectors(config)) {
-    const secretDetections = secretDetectors
-      .detect(scanText)
+    // Both views: Latin key patterns need folding, the Cyrillic "пароль" cue does not survive it.
+    const secretDetections = dedupeBySpan([scanText, foldedText].flatMap(view => secretDetectors.detect(view)))
       .filter(d => config.enabledTypes.includes('SECRET') || config.enabledTypes.includes(d.type));
     allDetections.push(...remapDetections(secretDetections, text, normalized));
   }
@@ -55,10 +61,7 @@ export function detect(text: string, config: EngineConfig): Detection[] {
 
   // 2. Filter by confidence
   const minScore = CONFIDENCE_SCORE[config.minConfidence];
-  allDetections = allDetections.filter(d => {
-    if (d.type === 'PERSON' && d.confidence === 'low') return false; // Default skip low for PERSON
-    return CONFIDENCE_SCORE[d.confidence] >= minScore;
-  });
+  allDetections = allDetections.filter(d => CONFIDENCE_SCORE[d.confidence] >= minScore);
 
   // 3. Merge spans
   allDetections.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
@@ -95,6 +98,16 @@ export function detect(text: string, config: EngineConfig): Detection[] {
   }
 
   return merged;
+}
+
+function dedupeBySpan(detections: Detection[]): Detection[] {
+  const seen = new Set<string>();
+  return detections.filter(d => {
+    const key = `${d.type}:${d.start}:${d.end}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function shouldRunSecretDetectors(config: EngineConfig): boolean {
