@@ -62,6 +62,34 @@ describe('Editor I/O', () => {
     await writeEditor(div, 'Текст с [RU_INN_1]');
     expect(readEditor(div)).toBe('Текст с [RU_INN_1]');
   });
+
+  it('reads ProseMirror-style block markup one line per paragraph', () => {
+    const div = document.createElement('div');
+    div.setAttribute('contenteditable', 'true');
+    // как ChatGPT хранит "строка1\nстрока2\n\nстрока3":
+    div.innerHTML = '<p>строка1</p><p>строка2</p><p><br></p><p>строка3</p>';
+    document.body.appendChild(div);
+
+    expect(readEditor(div)).toBe('строка1\nстрока2\n\nстрока3');
+  });
+
+  it('keeps line structure stable across repeated read cycles (no newline inflation)', () => {
+    const div = document.createElement('div');
+    div.setAttribute('contenteditable', 'true');
+    div.innerHTML = '<p>Привет! Я [PERSON_1].</p><p>Пиши на [EMAIL_1].</p><p><br></p><p>Проверка второго абзаца.</p>';
+    document.body.appendChild(div);
+
+    const first = readEditor(div);
+    // Имитируем поведение insertText: каждый \n = новый абзац, пустая строка = <p><br></p>
+    div.innerHTML = first
+      .split('\n')
+      .map(line => (line === '' ? '<p><br></p>' : `<p>${line}</p>`))
+      .join('');
+    const second = readEditor(div);
+
+    expect(second).toBe(first);
+    expect(first).not.toContain('\n\n\n');
+  });
 });
 
 function mockRect(el: HTMLElement, rect: { top: number; width: number; height: number }) {

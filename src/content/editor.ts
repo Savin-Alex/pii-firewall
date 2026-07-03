@@ -7,9 +7,35 @@ export function readEditor(el: HTMLElement): string {
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
     return el.value;
   }
-  // innerText preserves visible line breaks; textContent is the non-layout fallback (e.g. jsdom)
-  const text = (el as HTMLElement).innerText;
+  return readContentEditable(el);
+}
+
+const BLOCK_TAGS = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'PRE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+
+/**
+ * Rich editors (ProseMirror/Lexical/Quill) model one line per block element.
+ * Plain innerText renders a P boundary as "\n\n", and insertText then turns
+ * every "\n" into a paragraph split — each read→write cycle would inflate the
+ * text with empty paragraphs. Reading block-per-line keeps the cycle stable.
+ */
+function readContentEditable(el: HTMLElement): string {
+  const children = Array.from(el.childNodes);
+  const hasLooseText = children.some(n => n.nodeType === Node.TEXT_NODE && n.textContent?.trim());
+  const blocks = children.filter((n): n is HTMLElement => n instanceof HTMLElement);
+
+  if (!hasLooseText && blocks.length > 0 && blocks.every(b => BLOCK_TAGS.has(b.tagName))) {
+    return blocks.map(blockText).join('\n');
+  }
+
+  // Non-block content: innerText preserves visible breaks; textContent is the non-layout fallback (e.g. jsdom)
+  const text = el.innerText;
   return text !== undefined ? text : (el.textContent ?? '');
+}
+
+function blockText(block: HTMLElement): string {
+  const text = block.innerText !== undefined ? block.innerText : (block.textContent ?? '');
+  // An empty paragraph (<p><br></p>) reads as "\n" — it is one empty line, not two.
+  return text.replace(/\n+$/, '');
 }
 
 export async function writeEditor(el: HTMLElement, text: string): Promise<void> {
