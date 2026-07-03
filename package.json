@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --config vite.content.config.ts && vite build --config vite.background.config.ts && node scripts/copy-static.mjs",
+    "build:engine": "vite build",
     "test": "vitest run",
     "test:watch": "vitest",
     "gen:corpus": "vite-node scripts/generate-corpus.ts"
@@ -14,6 +15,7 @@
   "devDependencies": {
     "@types/chrome": "^0.0.268",
     "@types/node": "^20.11.0",
+    "jsdom": "^29.1.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.10",
     "vitest": "^1.1.0"

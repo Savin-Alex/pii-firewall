@@ -6,8 +6,8 @@
 ответе. Без сервера, без аккаунта, без сетевых разрешений — проверьте
 `manifest.json`: `"permissions": []`.
 
-> **Статус: M1 (движок) + M2 (обратимое маскирование и vault) готовы.**
-> UI на сайтах (M3), guard-режим (M4) и упаковка — следующие вехи.
+> **Статус: M1 (движок) + M2 (vault) + M3 (content script UI) готовы.**
+> Guard-режим (M4), popup/настройки (M5) и упаковка — следующие вехи.
 
 ## Движок (`src/engine/`)
 
@@ -64,6 +64,29 @@
 - Приёмка M2: property-тест round-trip — 120 случайных синтетических
   документов через реальный движок, побайтовое восстановление.
 
+## Content script (`src/content/`)
+
+- Плавающий виджет (closed Shadow DOM, тёмная тема): «Замаскировать» /
+  «Восстановить», чипы по типам сущностей, статус.
+- Сайты: ChatGPT, Claude, Gemini, Perplexity, Poe — селекторы в одном файле
+  `sites.ts`; редактор ищется по селектору сайта (только видимые элементы)
+  с геометрическим fallback.
+- Запись в редакторы, переживающая реальные сайты: нативный сеттер value +
+  `InputEvent` для React-textarea; `selectAll + insertText` для
+  ProseMirror/Lexical/Quill.
+- После маскирования добавляется инструкция модели «сохраняй метки»
+  (идемпотентно); restore снимает её до обращения к vault.
+- «Восстановить» с выделением — расшифровка фрагмента ответа в буфер обмена.
+- Горячие клавиши через manifest `commands` (переназначаемые):
+  Alt+Shift+M — маскировать, Alt+Shift+U — восстановить.
+- Смена URL после первого сообщения (`/` → `/c/<id>`) отслеживается,
+  mapping мигрирует (`Vault.migrateSession`); переключение между чатами
+  сессии не смешивает.
+- Service worker открывает `chrome.storage.session` для content scripts
+  (`setAccessLevel`) и выдаёт tabId для ключей vault.
+
+Ручная приёмка — [docs/e2e-checklist.md](docs/e2e-checklist.md).
+
 ## Метрики (синтетический корпус)
 
 Корпус: **93 фразы** (72 позитивных, 21 негативная — невалидные контрольные
@@ -98,10 +121,14 @@
 ## Команды
 
 ```bash
-npm test            # vitest: контрольные суммы, детекторы, корпусной eval (CI-гейт)
+npm test            # vitest: движок, vault (round-trip property), content-модули
 npm run gen:corpus  # перегенерировать tests/corpus/synthetic-corpus.json
-npm run build       # dist/engine.js (ES-модуль, ~15 кБ)
+npm run build       # dist/ = загружаемое расширение (content.js + background.js + manifest)
+npm run build:engine # dist/engine.js — движок отдельным ES-модулем
 ```
+
+Загрузка: `chrome://extensions` → «Режим разработчика» → «Загрузить
+распакованное» → папка `dist/`.
 
 ## Комплаенс
 

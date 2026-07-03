@@ -1,0 +1,15 @@
+{
+  "extension_name": { "message": "PII Firewall" },
+  "extension_description": { "message": "Local PII protection for AI chats" },
+  "cmd_mask": { "message": "Mask prompt" },
+  "cmd_restore": { "message": "Restore selection" },
+  "guard_title": { "message": "Personal Data Detected" },
+  "guard_desc": { "message": "You are trying to send text containing sensitive information:" },
+  "btn_mask_send": { "message": "Mask and send" },
+  "btn_send_anyway": { "message": "Send anyway" },
+  "btn_cancel": { "message": "Cancel" },
+  "status_ready": { "message": "Ready to protect" },
+  "status_protected": { "message": "Protected entities: $COUNT$" },
+  "toast_no_pii": { "message": "No PII detected" },
+  "toast_restored": { "message": "Restored to clipboard" }
+}

@@ -1,7 +1,39 @@
 {
   "manifest_version": 3,
   "name": "PII Firewall",
-  "version": "0.1.0",
-  "description": "Local PII detection engine prototype for the M1 milestone.",
-  "permissions": []
+  "version": "0.3.0",
+  "description": "Локальный файрвол персональных данных: маскирует ПДн до отправки в AI-чат и восстанавливает ответ. Ноль сетевых разрешений.",
+  "permissions": ["storage"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://www.perplexity.ai/*",
+        "https://perplexity.ai/*",
+        "https://poe.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "commands": {
+    "mask-prompt": {
+      "suggested_key": { "default": "Alt+Shift+M" },
+      "description": "Замаскировать ПДн в поле ввода"
+    },
+    "restore-text": {
+      "suggested_key": { "default": "Alt+Shift+U" },
+      "description": "Восстановить оригинальные значения"
+    }
+  },
+  "action": {
+    "default_title": "PII Firewall"
+  }
 }

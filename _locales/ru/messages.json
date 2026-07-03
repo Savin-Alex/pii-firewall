@@ -1,0 +1,15 @@
+{
+  "extension_name": { "message": "PII Firewall" },
+  "extension_description": { "message": "Локальная защита персональных данных в AI-чатах" },
+  "cmd_mask": { "message": "Замаскировать промпт" },
+  "cmd_restore": { "message": "Восстановить выделение" },
+  "guard_title": { "message": "Обнаружены персональные данные" },
+  "guard_desc": { "message": "Вы пытаетесь отправить текст, содержащий чувствительную информацию:" },
+  "btn_mask_send": { "message": "Замаскировать и отправить" },
+  "btn_send_anyway": { "message": "Отправить как есть" },
+  "btn_cancel": { "message": "Отмена" },
+  "status_ready": { "message": "Готов к защите" },
+  "status_protected": { "message": "Защищено сущностей: $COUNT$" },
+  "toast_no_pii": { "message": "ПДн не обнаружены" },
+  "toast_restored": { "message": "Восстановлено в буфер обмена" }
+}

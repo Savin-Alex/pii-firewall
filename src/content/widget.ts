@@ -1,22 +1,34 @@
-import { Vault, VaultSession } from '../vault/vault';
+import { Vault, VaultSession, VaultStorageError } from '../vault/vault';
 import { detect } from '../engine/engine';
-import { EngineConfig } from '../engine/types';
+import { Detection, EngineConfig } from '../engine/types';
 import { readEditor, writeEditor } from './editor';
+import { appendInstruction, stripInstruction } from './instruction';
+
+const READY_STATUS = 'Готов к защите';
 
 export class Widget {
   private container: HTMLElement;
   private shadow: ShadowRoot;
-  private session: VaultSession;
-  private config: EngineConfig;
+  private closed = false;
+  private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(session: VaultSession, config: EngineConfig) {
-    this.session = session;
-    this.config = config;
+  constructor(
+    private sessionProvider: () => VaultSession,
+    private config: EngineConfig,
+    private editorResolver: () => HTMLElement | null
+  ) {
     this.container = document.createElement('div');
     this.container.id = 'pii-firewall-widget-root';
     this.shadow = this.container.attachShadow({ mode: 'closed' });
     this.render();
     document.body.appendChild(this.container);
+  }
+
+  /** Re-attaches the widget if an SPA re-render dropped it (unless the user closed it). */
+  ensureAttached() {
+    if (!this.closed && !document.body.contains(this.container)) {
+      document.body.appendChild(this.container);
+    }
   }
 
   private render() {
@@ -59,63 +71,103 @@ export class Widget {
         @media (prefers-color-scheme: dark) {
           .btn-secondary { background: #444; color: #eee; }
         }
-        .status { font-size: 12px; color: #666; }
+        .status { font-size: 12px; color: #666; min-height: 15px; }
+        @media (prefers-color-scheme: dark) { .status { color: #aaa; } }
+        .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+        .chips:empty { display: none; }
+        .chip {
+          font-size: 11px; padding: 2px 8px; border-radius: 10px;
+          background: #eaf2ff; color: #0a58c2; white-space: nowrap;
+        }
+        @media (prefers-color-scheme: dark) { .chip { background: #1d3a5f; color: #9cc4f5; } }
       </style>
       <div class="card">
         <div class="header">
           <span>PII Firewall</span>
           <span style="cursor:pointer" id="close">×</span>
         </div>
-        <div class="status" id="status">Готов к защите</div>
+        <div class="status" id="status">${READY_STATUS}</div>
+        <div class="chips" id="chips"></div>
         <button class="btn" id="mask-btn">Замаскировать</button>
         <button class="btn btn-secondary" id="restore-btn">Восстановить</button>
       </div>
     `;
 
-    this.shadow.getElementById('mask-btn')?.addEventListener('click', () => this.handleMask());
-    this.shadow.getElementById('restore-btn')?.addEventListener('click', () => this.handleRestore());
-    this.shadow.getElementById('close')?.addEventListener('click', () => this.container.remove());
+    this.shadow.getElementById('mask-btn')?.addEventListener('click', () => void this.mask());
+    this.shadow.getElementById('restore-btn')?.addEventListener('click', () => void this.restore());
+    this.shadow.getElementById('close')?.addEventListener('click', () => {
+      this.closed = true;
+      this.container.remove();
+    });
   }
 
-  private async handleMask() {
-    const editor = this.getActiveEditor();
-    if (!editor) return;
+  async mask(): Promise<void> {
+    const editor = this.editorResolver();
+    if (!editor) {
+      this.showToast('Поле ввода не найдено');
+      return;
+    }
 
     const text = readEditor(editor);
     const detections = detect(text, this.config);
-    
+
     if (detections.length === 0) {
+      this.renderChips([]);
       this.showToast('ПДн не обнаружены');
       return;
     }
 
-    const masked = await Vault.mask(text, detections, this.session);
-    const instruction = "\n\nСохраняй метки в квадратных скобках вида [PERSON_1] в ответе без изменений.";
-    await writeEditor(editor, masked + instruction);
-    
-    this.updateStatus(`Защищено сущностей: ${detections.length}`);
+    try {
+      const masked = await Vault.mask(text, detections, this.sessionProvider());
+      await writeEditor(editor, appendInstruction(masked));
+      this.renderChips(detections);
+      this.updateStatus(`Защищено сущностей: ${detections.length}`);
+    } catch (e) {
+      this.showToast(e instanceof VaultStorageError ? 'Хранилище недоступно — отмена' : 'Ошибка маскирования');
+    }
   }
 
-  private async handleRestore() {
+  async restore(): Promise<void> {
+    const session = this.sessionProvider();
+
+    // Selection first: restore an AI reply fragment into the clipboard.
     const selection = window.getSelection()?.toString();
     if (selection && selection.includes('[')) {
-      const { text: restored } = await Vault.restore(selection, this.session);
+      const { text: restored, missing } = await Vault.restore(stripInstruction(selection), session);
       await navigator.clipboard.writeText(restored);
-      this.showToast('Восстановлено в буфер обмена');
+      this.showToast(missing.length ? `В буфере; неизвестных меток: ${missing.length}` : 'Восстановлено в буфер обмена');
       return;
     }
 
-    const editor = this.getActiveEditor();
-    if (!editor) return;
+    const editor = this.editorResolver();
+    if (!editor) {
+      this.showToast('Поле ввода не найдено');
+      return;
+    }
 
-    const text = readEditor(editor);
-    const { text: restored } = await Vault.restore(text, this.session);
+    const text = stripInstruction(readEditor(editor));
+    const { text: restored, missing } = await Vault.restore(text, session);
     await writeEditor(editor, restored);
+    if (missing.length > 0) {
+      this.showToast(`Неизвестных меток: ${missing.length}`);
+    } else {
+      this.updateStatus(READY_STATUS);
+      this.renderChips([]);
+    }
   }
 
-  private getActiveEditor(): HTMLElement | null {
-    // Simple implementation for now, will be improved in index.ts
-    return document.querySelector('textarea, [contenteditable="true"]');
+  private renderChips(detections: Detection[]) {
+    const el = this.shadow.getElementById('chips');
+    if (!el) return;
+    const counts = new Map<string, number>();
+    for (const d of detections) counts.set(d.type, (counts.get(d.type) || 0) + 1);
+    el.textContent = '';
+    for (const [type, count] of counts) {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = count > 1 ? `${type} ×${count}` : type;
+      el.appendChild(chip);
+    }
   }
 
   private updateStatus(msg: string) {
@@ -124,6 +176,10 @@ export class Widget {
   }
 
   private showToast(msg: string) {
-    alert(msg); // Temporary, will replace with proper UI toast
+    const el = this.shadow.getElementById('status');
+    if (!el) return;
+    el.textContent = msg;
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => { el.textContent = READY_STATUS; }, 3000);
   }
 }

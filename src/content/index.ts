@@ -1,45 +1,82 @@
-import { getCurrentSite, SiteConfig, FALLBACK_EDITOR } from './sites';
+import { getCurrentSite, SiteConfig } from './sites';
+import { resolveEditor } from './editor';
 import { Widget } from './widget';
-import { VaultSession } from '../vault/vault';
+import { Vault, VaultSession } from '../vault/vault';
 import { EngineConfig } from '../engine/types';
 
-let widget: Widget | null = null;
-
 const defaultConfig: EngineConfig = {
-  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_OMS', 'IBAN', 'US_SSN', 'IP_ADDRESS', 'PERSON'],
+  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_OMS', 'IBAN', 'US_SSN', 'IP_ADDRESS', 'PERSON', 'SECRET'],
   minConfidence: 'medium',
   language: 'auto'
 };
 
-function init() {
-  const site = getCurrentSite();
-  if (!site && !document.querySelector(FALLBACK_EDITOR)) return;
+let site: SiteConfig | undefined;
+let widget: Widget | null = null;
+let session: VaultSession = { tabId: 0, url: window.location.href };
 
-  const session: VaultSession = {
-    tabId: 0, // Will be filled by background if needed, or handled by Vault.generateSessionId
-    url: window.location.href
-  };
-
-  // In a real extension, we'd fetch config from chrome.storage.local
-  widget = new Widget(session, defaultConfig);
-  console.log('PII Firewall initialized for', site?.id || 'unknown site');
+async function fetchTabId(): Promise<number> {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'get-tab-id' });
+    return response?.tabId ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
-// Listen for messages from background script (commands)
+function isDraftUrl(url: string): boolean {
+  try {
+    const path = new URL(url).pathname;
+    return (site?.draftPaths ?? ['/']).includes(path);
+  } catch {
+    return false;
+  }
+}
+
+async function handleUrlChange(newUrl: string): Promise<void> {
+  const previous = session;
+  session = { tabId: previous.tabId, url: newUrl };
+  // A draft conversation just got its permanent id (e.g. chatgpt.com/ -> /c/<id>):
+  // move the mapping so restore keeps working. Switching between existing chats
+  // intentionally does NOT migrate — conversations stay isolated.
+  if (isDraftUrl(previous.url)) {
+    try {
+      await Vault.migrateSession(previous, session);
+    } catch {
+      // storage unavailable — nothing to migrate
+    }
+  }
+}
+
+function startWatchdog(): void {
+  let lastUrl = window.location.href;
+  setInterval(() => {
+    if (window.location.href !== lastUrl) {
+      lastUrl = window.location.href;
+      void handleUrlChange(lastUrl);
+    }
+    widget?.ensureAttached();
+  }, 800);
+}
+
+async function init(): Promise<void> {
+  site = getCurrentSite();
+  session = { tabId: await fetchTabId(), url: window.location.href };
+  widget = new Widget(() => session, defaultConfig, () => resolveEditor(site));
+  startWatchdog();
+  console.log('PII Firewall initialized for', site?.id ?? 'unknown site');
+}
+
+// Hotkeys forwarded by the service worker (manifest commands)
 if (typeof chrome !== 'undefined' && chrome.runtime) {
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.command === 'mask-prompt') {
-      // Trigger mask logic via widget or directly
-      console.log('Command: mask-prompt');
-    } else if (message.command === 'restore-selection') {
-      console.log('Command: restore-selection');
-    }
+    if (message?.command === 'mask-prompt') void widget?.mask();
+    else if (message?.command === 'restore-text') void widget?.restore();
   });
 }
 
 // Wait for DOM to be ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => void init());
 } else {
-  init();
+  void init();
 }
