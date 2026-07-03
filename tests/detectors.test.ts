@@ -74,6 +74,12 @@ describe('Homoglyph folding', () => {
     const results = detect(text, defaultConfig);
     expect(results.some(d => d.type === 'SECRET_AWS')).toBe(true);
   });
+
+  it('should detect plain ASCII AWS key (runtime-assembled, scanner-safe source)', () => {
+    const key = ['AKIA', 'IOSFODNN7EXAMPLE'].join('');
+    const results = detect(`в логах найден ${key}`, defaultConfig);
+    expect(results.some(d => d.type === 'SECRET_AWS')).toBe(true);
+  });
 });
 
 describe('Phone formats', () => {
