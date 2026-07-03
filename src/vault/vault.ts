@@ -1,5 +1,15 @@
 import { Detection } from '../engine/types';
 import { EncryptedPayload, encryptJson, decryptJson } from './crypto';
+import { PlaceholderStyle, formatPlaceholder, placeholderPattern, parsePlaceholder } from './placeholder';
+
+export interface SessionSummary {
+  sessionId: string;
+  host: string;
+  path: string;
+  count: number;
+  /** entity type -> count, for a masked (no raw values) preview */
+  types: Record<string, number>;
+}
 
 export interface VaultSession {
   tabId: number;
@@ -22,7 +32,6 @@ export class VaultStorageError extends Error {
 
 const SESSION_PREFIX = 'vault_';
 const PERSISTENT_KEY = 'vault_persistent_v1';
-const PLACEHOLDER_RE = /\[([A-Z_]+)_(\d+)\]/g;
 
 function sessionStore(): typeof chrome.storage.session {
   if (typeof chrome === 'undefined' || !chrome.storage?.session) throw new VaultStorageError();
@@ -71,7 +80,7 @@ export class Vault {
    * Replaces detected PII with placeholders and stores them in the vault.
    * Same original value gets the same placeholder within a session.
    */
-  static async mask(text: string, detections: Detection[], session: VaultSession): Promise<string> {
+  static async mask(text: string, detections: Detection[], session: VaultSession, style: PlaceholderStyle = 'square'): Promise<string> {
     sessionStore(); // fail loudly before masking anything
     return this.enqueue(async () => {
       const sessionId = this.generateSessionId(session);
@@ -81,16 +90,16 @@ export class Vault {
       const sorted = [...detections].sort((a, b) => b.start - a.start);
       let maskedText = text;
 
-      // Seed counters from the mapping AND from placeholder-like patterns already
-      // present in the input text, so a pasted "[RU_SNILS_1]" can never collide
-      // with a newly issued placeholder (that would corrupt restore).
+      // Seed counters from the mapping AND from placeholder-like tokens (any style)
+      // already present in the input text, so a pasted "[RU_SNILS_1]" can never
+      // collide with a newly issued placeholder (that would corrupt restore).
       const typeCounters: Record<string, number> = {};
-      const bump = (placeholder: string) => {
-        const m = /^\[([A-Z_]+)_(\d+)\]$/.exec(placeholder);
-        if (m) typeCounters[m[1]] = Math.max(typeCounters[m[1]] || 0, parseInt(m[2], 10));
+      const bump = (token: string) => {
+        const p = parsePlaceholder(token);
+        if (p) typeCounters[p.type] = Math.max(typeCounters[p.type] || 0, p.num);
       };
       mapping.forEach(entry => bump(entry.placeholder));
-      for (const m of text.matchAll(PLACEHOLDER_RE)) bump(m[0]);
+      for (const m of text.matchAll(placeholderPattern())) bump(m[0]);
 
       for (const det of sorted) {
         const originalValue = text.substring(det.start, det.end);
@@ -102,7 +111,7 @@ export class Vault {
           typeCounters[det.type] = (typeCounters[det.type] || 0) + 1;
           entry = {
             original: originalValue,
-            placeholder: `[${det.type}_${typeCounters[det.type]}]`,
+            placeholder: formatPlaceholder(det.type, typeCounters[det.type], style),
             type: det.type
           };
           mapping.push(entry);
@@ -126,7 +135,7 @@ export class Vault {
     let restoredText = text;
     const missing: string[] = [];
 
-    const foundPlaceholders = Array.from(text.matchAll(PLACEHOLDER_RE));
+    const foundPlaceholders = Array.from(text.matchAll(placeholderPattern()));
     foundPlaceholders.sort((a, b) => b.index! - a.index!);
 
     for (const match of foundPlaceholders) {
@@ -171,6 +180,34 @@ export class Vault {
 
   static async forgetSession(session: VaultSession): Promise<void> {
     await sessionStore().remove(SESSION_PREFIX + this.generateSessionId(session));
+  }
+
+  /**
+   * Lists active vault sessions with a MASKED preview only (entity type counts,
+   * never raw values or placeholders' originals). For the popup's recent list.
+   */
+  static async listSessions(): Promise<SessionSummary[]> {
+    const all = await sessionStore().get(null);
+    const out: SessionSummary[] = [];
+    for (const [key, value] of Object.entries(all)) {
+      if (!key.startsWith(SESSION_PREFIX) || key === PERSISTENT_KEY) continue;
+      const entries = value as VaultEntry[];
+      if (!Array.isArray(entries) || entries.length === 0) continue;
+      const sessionId = key.slice(SESSION_PREFIX.length);
+      const slash = sessionId.indexOf('_');
+      const hostPath = slash >= 0 ? sessionId.slice(slash + 1) : sessionId;
+      const firstSlash = hostPath.indexOf('/');
+      const types: Record<string, number> = {};
+      for (const e of entries) types[e.type] = (types[e.type] || 0) + 1;
+      out.push({
+        sessionId,
+        host: firstSlash >= 0 ? hostPath.slice(0, firstSlash) : hostPath,
+        path: firstSlash >= 0 ? hostPath.slice(firstSlash) : '/',
+        count: entries.length,
+        types
+      });
+    }
+    return out;
   }
 
   /** Removes all vault_* mappings, leaving other extension session data untouched. */

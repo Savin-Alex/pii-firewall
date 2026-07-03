@@ -1,55 +1,98 @@
-const DATA_TYPES = [
-  { id: 'PERSON', label: 'ФИО', desc: 'Имена, фамилии и отчества' },
-  { id: 'PHONE', label: 'Телефоны', desc: 'Российские и международные номера' },
-  { id: 'EMAIL', label: 'Email', desc: 'Адреса электронной почты' },
-  { id: 'CARD', label: 'Банковские карты', desc: 'Номера карт (валидация Луна)' },
-  { id: 'RU_INN', label: 'ИНН', desc: 'Идентификационный номер налогоплательщика' },
-  { id: 'RU_SNILS', label: 'СНИЛС', desc: 'Страховой номер счета' },
-  { id: 'SECRET', label: 'Секреты', desc: 'API-ключи, токены, пароли' }
-];
+import { Vault, PersistentVault } from '../vault/vault';
+import { PII_TYPES, loadSettings, saveSettings, Settings } from '../settings';
+import { t, uiLang, localizeDom } from '../i18n';
 
-async function loadOptions() {
-  const container = document.getElementById('types-list');
-  const settings = await chrome.storage.local.get(['enabledTypes', 'guardEnabled', 'instructionEnabled']);
-  
-  const enabledTypes = settings.enabledTypes || DATA_TYPES.map(t => t.id);
-  
-  DATA_TYPES.forEach(type => {
+const lang = uiLang();
+
+function renderTypes(enabled: string[]) {
+  const container = document.getElementById('types-list')!;
+  container.textContent = '';
+  for (const type of PII_TYPES) {
     const row = document.createElement('div');
-    row.className = 'option-row';
-    row.innerHTML = `
-      <div class="option-info">
-        <span class="option-label">${type.label}</span>
-        <span class="option-desc">${type.desc}</span>
-      </div>
-      <label class="switch">
-        <input type="checkbox" class="type-checkbox" data-id="${type.id}" ${enabledTypes.includes(type.id) ? 'checked' : ''}>
-        <span class="slider"></span>
-      </label>
-    `;
-    container?.appendChild(row);
-  });
+    row.className = 'row';
 
-  (document.getElementById('guard-enabled') as HTMLInputElement).checked = settings.guardEnabled !== false;
-  (document.getElementById('instruction-enabled') as HTMLInputElement).checked = settings.instructionEnabled !== false;
+    const info = document.createElement('div');
+    info.className = 'info';
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = type.label[lang];
+    const desc = document.createElement('span');
+    desc.className = 'desc';
+    desc.textContent = type.desc[lang];
+    info.append(label, desc);
+
+    const sw = document.createElement('label');
+    sw.className = 'switch';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'type-checkbox';
+    cb.dataset.id = type.id;
+    cb.checked = enabled.includes(type.id);
+    const slider = document.createElement('span');
+    slider.className = 'slider';
+    sw.append(cb, slider);
+
+    row.append(info, sw);
+    container.appendChild(row);
+  }
+}
+
+async function load() {
+  localizeDom();
+  const settings = await loadSettings();
+  renderTypes(settings.enabledTypes);
+  (document.getElementById('guard-enabled') as HTMLInputElement).checked = settings.guardEnabled;
+  (document.getElementById('instruction-enabled') as HTMLInputElement).checked = settings.instructionEnabled;
+  (document.getElementById('language') as HTMLSelectElement).value = settings.language;
+  document.getElementById('persist-status')!.textContent =
+    (await PersistentVault.isEnabled()) ? t('options_persist_on') : t('options_persist_off');
+}
+
+function collect(): Partial<Settings> {
+  const enabledTypes = Array.from(document.querySelectorAll<HTMLInputElement>('.type-checkbox'))
+    .filter(cb => cb.checked)
+    .map(cb => cb.dataset.id!)
+    .filter(Boolean);
+  return {
+    enabledTypes,
+    guardEnabled: (document.getElementById('guard-enabled') as HTMLInputElement).checked,
+    instructionEnabled: (document.getElementById('instruction-enabled') as HTMLInputElement).checked,
+    language: (document.getElementById('language') as HTMLSelectElement).value as Settings['language']
+  };
+}
+
+function flash(msg: string) {
+  const el = document.getElementById('saved')!;
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = ''; }, 2500);
 }
 
 document.getElementById('save')?.addEventListener('click', async () => {
-  const checkboxes = document.querySelectorAll('.type-checkbox');
-  const enabledTypes = Array.from(checkboxes)
-    .filter(cb => (cb as HTMLInputElement).checked)
-    .map(cb => (cb as HTMLElement).dataset.id);
-
-  const guardEnabled = (document.getElementById('guard-enabled') as HTMLInputElement).checked;
-  const instructionEnabled = (document.getElementById('instruction-enabled') as HTMLInputElement).checked;
-
-  await chrome.storage.local.set({
-    enabledTypes,
-    guardEnabled,
-    instructionEnabled
-  });
-
-  alert('Настройки сохранены');
+  await saveSettings(collect());
+  flash(t('options_saved'));
 });
 
-loadOptions();
+document.getElementById('forget-all')?.addEventListener('click', async () => {
+  await Vault.clearAll();
+  flash(t('options_forgotten'));
+});
+
+document.getElementById('persist-enable')?.addEventListener('click', async () => {
+  const pass = (document.getElementById('passphrase') as HTMLInputElement).value;
+  if (pass.length < 6) { flash(t('options_persist_weak')); return; }
+  try {
+    await PersistentVault.persist(pass);
+    document.getElementById('persist-status')!.textContent = t('options_persist_on');
+    flash(t('options_saved'));
+  } catch {
+    flash(t('options_persist_error'));
+  }
+});
+
+document.getElementById('persist-disable')?.addEventListener('click', async () => {
+  await PersistentVault.disable();
+  document.getElementById('persist-status')!.textContent = t('options_persist_off');
+  flash(t('options_saved'));
+});
+
+void load();

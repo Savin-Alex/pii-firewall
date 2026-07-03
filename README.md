@@ -3,11 +3,13 @@
 Локальный файрвол для персональных данных: обнаруживает и обратимо маскирует
 ПДн/PII **прямо в браузере**, до того как промпт уйдёт в AI-чат
 (ChatGPT, Claude, Gemini, Perplexity, Poe), и восстанавливает оригиналы в
-ответе. Без сервера, без аккаунта, без сетевых разрешений — проверьте
-`manifest.json`: `"permissions": []`.
+ответе. Без сервера, без аккаунта, **без единого сетевого разрешения** —
+проверьте `manifest.json`: единственное разрешение `storage` (локальное
+хранилище браузера), никакого `host_permissions` к сети.
 
-> **Статус: M1 (движок) + M2 (vault) + M3 (content script UI) готовы.**
-> Guard-режим (M4), popup/настройки (M5) и упаковка — следующие вехи.
+> **Статус: M1 (движок), M2 (vault), M3 (content UI), M4 (guard),
+> M5 (popup/options/i18n), M6 (onboarding) готовы.**
+> Остаётся E2E-прогон по всем сайтам и M8 (скриншоты, видео, submission).
 
 ## Движок (`src/engine/`)
 
@@ -85,7 +87,36 @@
 - Service worker открывает `chrome.storage.session` для content scripts
   (`setAccessLevel`) и выдаёт tabId для ключей vault.
 
-Ручная приёмка — [docs/e2e-checklist.md](docs/e2e-checklist.md).
+Ручная приёмка — [docs/e2e-checklist.md](docs/e2e-checklist.md),
+пошагово — [docs/manual-testing.md](docs/manual-testing.md).
+
+## Guard-режим (`src/content/guard.ts`)
+
+- Перехват отправки (Enter без Shift в capture-фазе + клик по кнопке
+  отправки) → скан → модал «Замаскировать и отправить / Отправить как есть /
+  Отмена» с подсветкой найденных ПДн (весь пользовательский текст
+  экранируется — без XSS).
+- Глобальный тумблер (настройки) + переключатель на каждый сайт (popup).
+- Счётчик «предотвращено утечек» инкрементится при «Замаскировать и
+  отправить», виден в popup.
+
+## Popup / настройки / i18n (`src/popup/`, `src/options/`, `_locales/`)
+
+- **Popup:** сайт, счётчик утечек, guard-тумблер для текущего сайта, «Забыть
+  сессию / Забыть всё», «Демо-режим» (открывает ChatGPT + синтетический
+  пример в буфер), ссылки на настройки и onboarding.
+- **Options:** все 14 типов детекции (DATE_OF_BIRTH — opt-in), guard и
+  инструкция, язык (авто/ru/en), опциональное шифрованное хранилище
+  (AES-GCM, пароль). Настройки читаются content-скриптом **на лету**
+  (через `chrome.storage.onChanged`, без перезагрузки).
+- **i18n:** RU (основная) + EN через `_locales` и `default_locale`; имя и
+  описание в манифесте — `__MSG_*`, строки UI — `data-i18n`.
+
+## Onboarding (`onboarding/`)
+
+- Тур из 3 шагов с синтетическим примером, открывается при установке
+  (`onInstalled`) и из popup. Скрипт вынесен в `onboarding.js` (CSP страниц
+  расширения запрещает inline).
 
 ## Метрики (синтетический корпус)
 
@@ -121,18 +152,31 @@
 ## Команды
 
 ```bash
-npm test            # vitest: движок, vault (round-trip property), content-модули
+npm test            # vitest: движок, vault (round-trip property), content, настройки
 npm run gen:corpus  # перегенерировать tests/corpus/synthetic-corpus.json
-npm run build       # dist/ = загружаемое расширение (content.js + background.js + manifest)
+npm run build       # dist/ = загружаемое расширение (content+background+popup+options+ассеты)
 npm run build:engine # dist/engine.js — движок отдельным ES-модулем
+npm run gen:icons   # перегенерировать icons/*.png (zero-dep PNG на zlib)
+npm run zip         # pii-firewall-<версия>.zip для маркетплейса (после build)
 ```
 
 Загрузка: `chrome://extensions` → «Режим разработчика» → «Загрузить
 распакованное» → папка `dist/`.
 
+## Тарифы
+
+- **Free:** весь основной функционал — детекция, маскирование,
+  восстановление, guard-режим, 6 сайтов.
+- **Pro (план):** свои правила детекции, командные политики, NER-пакет для
+  имён/адресов, аудит-лог для компаний.
+
+Материалы для маркетплейса — [docs/listing-ru.md](docs/listing-ru.md),
+сценарий видео — [docs/video-script.md](docs/video-script.md).
+
 ## Комплаенс
 
 - Все тестовые/демо-данные **синтетические**: сгенерированы, контрольные
   цифры вычислены; реальные реквизиты не используются.
-- Runtime-зависимостей нет; dev-зависимости — MIT (vite, vitest, typescript).
-- `manifest.json` не запрашивает ни одного разрешения.
+- Runtime-зависимостей нет; dev-зависимости — MIT (vite, vitest, typescript, jsdom).
+- `manifest.json` запрашивает только `storage` (локальное) — ни одного
+  сетевого разрешения, никаких `host_permissions`.

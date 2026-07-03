@@ -4,6 +4,8 @@ import { Vault, VaultSession } from '../vault/vault';
 import { readEditor, writeEditor } from './editor';
 import { appendInstruction } from './instruction';
 import { getCurrentSite } from './sites';
+import { incrementLeakCount } from '../settings';
+import { PlaceholderStyle } from '../vault/placeholder';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, c => (
@@ -11,14 +13,23 @@ function escapeHtml(s: string): string {
   ));
 }
 
+export interface GuardHooks {
+  /** Whether guard is on for the current site (global toggle + per-site). */
+  activeProvider: () => boolean;
+  /** Whether to append the model instruction after masking. */
+  instructionProvider: () => boolean;
+  /** Placeholder bracket style. */
+  styleProvider: () => PlaceholderStyle;
+}
+
 export class Guard {
-  private config: EngineConfig;
-  private session: VaultSession;
   private isProcessing = false;
 
-  constructor(config: EngineConfig, session: VaultSession) {
-    this.config = config;
-    this.session = session;
+  constructor(
+    private configProvider: () => EngineConfig,
+    private sessionProvider: () => VaultSession,
+    private hooks: GuardHooks
+  ) {
     this.setupListeners();
   }
 
@@ -29,8 +40,8 @@ export class Guard {
   }
 
   private async handleKeyDown(e: KeyboardEvent) {
-    if (this.isProcessing) return;
-    
+    if (this.isProcessing || !this.hooks.activeProvider()) return;
+
     // Intercept Enter without Shift
     if (e.key === 'Enter' && !e.shiftKey) {
       const target = e.target as HTMLElement;
@@ -41,7 +52,7 @@ export class Guard {
   }
 
   private async handleClick(e: MouseEvent) {
-    if (this.isProcessing) return;
+    if (this.isProcessing || !this.hooks.activeProvider()) return;
 
     const site = getCurrentSite();
     if (!site) return;
@@ -63,7 +74,7 @@ export class Guard {
 
   private async intercept(e: Event, editor: HTMLElement) {
     const text = readEditor(editor);
-    const detections = detect(text, this.config);
+    const detections = detect(text, this.configProvider());
 
     if (detections.length > 0) {
       // Stop the original event
@@ -132,8 +143,9 @@ export class Guard {
     shadow.getElementById('mask-send')?.addEventListener('click', async () => {
       this.isProcessing = true;
       try {
-        const masked = await Vault.mask(text, detections, this.session);
-        await writeEditor(editor, appendInstruction(masked));
+        const masked = await Vault.mask(text, detections, this.sessionProvider(), this.hooks.styleProvider());
+        await writeEditor(editor, this.hooks.instructionProvider() ? appendInstruction(masked) : masked);
+        void incrementLeakCount(); // a leak was prevented — bump the popup counter
         modalRoot.remove();
         // Flag stays up through triggerSubmit so our own capture listeners pass the event through
         this.triggerSubmit(editor);

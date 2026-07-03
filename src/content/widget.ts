@@ -1,4 +1,5 @@
 import { Vault, VaultSession, VaultStorageError } from '../vault/vault';
+import { PlaceholderStyle } from '../vault/placeholder';
 import { detect } from '../engine/engine';
 import { Detection, EngineConfig } from '../engine/types';
 import { readEditor, writeEditor } from './editor';
@@ -14,8 +15,10 @@ export class Widget {
 
   constructor(
     private sessionProvider: () => VaultSession,
-    private config: EngineConfig,
-    private editorResolver: () => HTMLElement | null
+    private configProvider: () => EngineConfig,
+    private editorResolver: () => HTMLElement | null,
+    private instructionProvider: () => boolean = () => true,
+    private styleProvider: () => PlaceholderStyle = () => 'square'
   ) {
     this.container = document.createElement('div');
     this.container.id = 'pii-firewall-widget-root';
@@ -109,7 +112,7 @@ export class Widget {
     }
 
     const text = readEditor(editor);
-    const detections = detect(text, this.config);
+    const detections = detect(text, this.configProvider());
 
     if (detections.length === 0) {
       this.renderChips([]);
@@ -118,8 +121,8 @@ export class Widget {
     }
 
     try {
-      const masked = await Vault.mask(text, detections, this.sessionProvider());
-      await writeEditor(editor, appendInstruction(masked));
+      const masked = await Vault.mask(text, detections, this.sessionProvider(), this.styleProvider());
+      await writeEditor(editor, this.instructionProvider() ? appendInstruction(masked) : masked);
       this.renderChips(detections);
       this.updateStatus(`Защищено сущностей: ${detections.length}`);
     } catch (e) {

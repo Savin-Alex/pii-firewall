@@ -11,6 +11,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// First run: open the guided onboarding tab.
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('onboarding/onboarding.html') });
+  }
+});
+
 // Manifest commands (Alt+Shift+M / Alt+Shift+U) -> active tab
 chrome.commands.onCommand.addListener((command) => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

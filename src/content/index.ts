@@ -1,18 +1,16 @@
 import { getCurrentSite, SiteConfig } from './sites';
-import { resolveEditor } from './editor';
+import { resolveEditor, writeEditor } from './editor';
 import { Widget } from './widget';
+import { Guard } from './guard';
 import { Vault, VaultSession } from '../vault/vault';
-import { EngineConfig } from '../engine/types';
+import { Settings, DEFAULT_SETTINGS, loadSettings, toEngineConfig, guardActiveForSite } from '../settings';
 
-const defaultConfig: EngineConfig = {
-  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_OMS', 'IBAN', 'US_SSN', 'IP_ADDRESS', 'PERSON', 'SECRET'],
-  minConfidence: 'medium',
-  language: 'auto'
-};
+const DEMO_KEY = 'pii_demo_pending';
 
 let site: SiteConfig | undefined;
 let widget: Widget | null = null;
 let session: VaultSession = { tabId: 0, url: window.location.href };
+let settings: Settings = DEFAULT_SETTINGS;
 
 async function fetchTabId(): Promise<number> {
   try {
@@ -60,10 +58,67 @@ function startWatchdog(): void {
 
 async function init(): Promise<void> {
   site = getCurrentSite();
+  settings = await loadSettings();
   session = { tabId: await fetchTabId(), url: window.location.href };
-  widget = new Widget(() => session, defaultConfig, () => resolveEditor(site));
+
+  // Providers read the live `settings`, so an options change applies without reload.
+  widget = new Widget(
+    () => session,
+    () => toEngineConfig(settings),
+    () => resolveEditor(site),
+    () => settings.instructionEnabled,
+    () => settings.placeholderStyle
+  );
+
+  new Guard(
+    () => toEngineConfig(settings),
+    () => session,
+    {
+      activeProvider: () => guardActiveForSite(settings, site?.id),
+      instructionProvider: () => settings.instructionEnabled,
+      styleProvider: () => settings.placeholderStyle
+    }
+  );
+
   startWatchdog();
+  void consumeDemo();
   console.log('PII Firewall initialized for', site?.id ?? 'unknown site');
+}
+
+/**
+ * Demo mode (popup / onboarding): a sample was stashed in storage.session and
+ * this tab was opened. Paste it into the editor once it exists, then clear the
+ * flag so it fires only once.
+ */
+async function consumeDemo(): Promise<void> {
+  if (!chrome.storage?.session) return;
+  let pending: string | undefined;
+  try {
+    pending = (await chrome.storage.session.get(DEMO_KEY))[DEMO_KEY];
+  } catch {
+    return;
+  }
+  if (!pending) return;
+  await chrome.storage.session.remove(DEMO_KEY);
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const editor = resolveEditor(site);
+    if (editor) {
+      await writeEditor(editor, pending);
+      widget?.ensureAttached();
+      return;
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
+
+// Live settings: reload when the options page saves.
+if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.settings) {
+      void loadSettings().then(s => { settings = s; });
+    }
+  });
 }
 
 // Hotkeys forwarded by the service worker (manifest commands)
