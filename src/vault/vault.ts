@@ -86,10 +86,6 @@ export class Vault {
       const sessionId = this.generateSessionId(session);
       const mapping = await this.getMapping(sessionId);
 
-      // Sort detections backwards to replace without breaking offsets
-      const sorted = [...detections].sort((a, b) => b.start - a.start);
-      let maskedText = text;
-
       // Seed counters from the mapping AND from placeholder-like tokens (any style)
       // already present in the input text, so a pasted "[RU_SNILS_1]" can never
       // collide with a newly issued placeholder (that would corrupt restore).
@@ -101,23 +97,25 @@ export class Vault {
       mapping.forEach(entry => bump(entry.placeholder));
       for (const m of text.matchAll(placeholderPattern())) bump(m[0]);
 
-      for (const det of sorted) {
+      // 1. Assign placeholders in FORWARD reading order so numbering is human-friendly
+      //    ([PERSON_1] before [PERSON_2]); same value reuses the same placeholder.
+      for (const det of [...detections].sort((a, b) => a.start - b.start)) {
         const originalValue = text.substring(det.start, det.end);
-
-        // Check if we already have this value masked in this session
-        let entry = mapping.find(e => e.original === originalValue);
-
-        if (!entry) {
+        if (!mapping.find(e => e.original === originalValue)) {
           typeCounters[det.type] = (typeCounters[det.type] || 0) + 1;
-          entry = {
+          mapping.push({
             original: originalValue,
             placeholder: formatPlaceholder(det.type, typeCounters[det.type], style),
             type: det.type
-          };
-          mapping.push(entry);
+          });
         }
+      }
 
-        maskedText = maskedText.substring(0, det.start) + entry.placeholder + maskedText.substring(det.end);
+      // 2. Replace back-to-front so earlier offsets stay valid.
+      let maskedText = text;
+      for (const det of [...detections].sort((a, b) => b.start - a.start)) {
+        const entry = mapping.find(e => e.original === text.substring(det.start, det.end));
+        if (entry) maskedText = maskedText.substring(0, det.start) + entry.placeholder + maskedText.substring(det.end);
       }
 
       await this.saveMapping(sessionId, mapping);

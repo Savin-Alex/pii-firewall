@@ -65,6 +65,12 @@ describe('Vault Masking & Restoration', () => {
     expect(masked).toBe('[PERSON_1] and [PERSON_1] again.');
   });
 
+  it('numbers placeholders in forward reading order', async () => {
+    const text = 'Сначала Иванов Иван Иванович, потом Петрова Анна Сергеевна.';
+    const masked = await Vault.mask(text, detect(text, engineConfig), session);
+    expect(masked).toBe('Сначала [PERSON_1], потом [PERSON_2].');
+  });
+
   it('should isolate different sessions (wrong-session restore refuses and warns)', async () => {
     const text = 'Secret: 12345';
     const det: Detection = { type: 'SECRET', start: 8, end: 13, value: '12345', confidence: 'high', validator: 'format' };

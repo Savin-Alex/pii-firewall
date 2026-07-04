@@ -14,20 +14,25 @@
 
 Ожидаемые сущности: PERSON, RU_INN, RU_SNILS, EMAIL, PHONE — всего 5.
 
+Это быстрый смоук. **Полный тест всех типов, форматов и ловушек** —
+[docs/test-corpus.md](test-corpus.md).
+
 ## Шаг 0. Сборка
 
 ```bash
 npm run build
 ```
 
-Ожидание: в `dist/` три файла — `content.js`, `background.js`, `manifest.json`.
+Ожидание: `dist/` — готовое расширение: `manifest.json`, `content.js`,
+`background.js`, `popup.html`/`popup.js`, `options.html`/`options.js` и папки
+`onboarding/`, `icons/`, `_locales/`, `chunks/`.
 
 ## Шаг 1. Загрузка в Chrome
 
 1. Откройте `chrome://extensions`.
 2. Включите «Режим разработчика» (тумблер справа сверху).
 3. «Загрузить распакованное расширение» → выберите папку `dist/`.
-4. Ожидание: карточка **PII Firewall 0.3.0** без красной кнопки «Ошибки».
+4. Ожидание: карточка **PII Firewall** (номер версии — как в `manifest.json`) без красной кнопки «Ошибки».
 5. Нажмите ссылку **service worker** на карточке → откроется консоль SW.
    Ожидание: пусто, без красных ошибок.
 6. Откройте `chrome://extensions/shortcuts`.

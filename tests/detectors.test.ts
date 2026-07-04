@@ -91,6 +91,12 @@ describe('Phone formats', () => {
     }
   });
 
+  it('should detect international phones with parentheses (US/UK format)', () => {
+    for (const text of ['call +1 (212) 555-0143', 'phone +1 415 555 0199', 'tel +44 (20) 7946 0958']) {
+      expect(detect(text, defaultConfig).some(d => d.type === 'PHONE'), text).toBe(true);
+    }
+  });
+
   it('should downgrade bare 11-digit numbers to medium', () => {
     const results = detect('артикул 81234567890 на складе', defaultConfig);
     const phone = results.find(d => d.type === 'PHONE');
@@ -278,12 +284,16 @@ describe('Person declension', () => {
   });
 });
 
-describe('PERSON confidence filter', () => {
-  it('EN capitalized pairs surface only at minConfidence low', () => {
-    const text = 'The report was written by John Smith yesterday';
-    const atMedium = detect(text, defaultConfig);
-    expect(atMedium.some(d => d.type === 'PERSON')).toBe(false);
-    const atLow = detect(text, { ...defaultConfig, minConfidence: 'low' });
-    expect(atLow.some(d => d.type === 'PERSON' && d.value === 'John Smith')).toBe(true);
+describe('PERSON EN bare names', () => {
+  it('bare "First Last" masks at the default medium threshold', () => {
+    expect(detect('The report was written by John Smith yesterday', defaultConfig)
+      .some(d => d.type === 'PERSON' && d.value === 'John Smith')).toBe(true);
+  });
+
+  it('stoplisted place/org bigrams are NOT masked', () => {
+    expect(detect('We opened an office in New York last year', defaultConfig)
+      .some(d => d.type === 'PERSON' && d.value === 'New York')).toBe(false);
+    expect(detect('for test company Synthetic Data LLC', defaultConfig)
+      .some(d => d.type === 'PERSON')).toBe(false);
   });
 });

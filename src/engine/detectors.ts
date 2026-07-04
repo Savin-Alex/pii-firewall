@@ -34,7 +34,9 @@ export const detectors: Detector[] = [
       // RU: +7/8 + 10 digits with space/hyphen/paren separators; intl: + and 8-15 digits.
       // Digit lookarounds keep matches out of longer digit runs (card numbers, IBAN tails).
       const ruRegex = /(?<!\d)(?:\+7|8)[\s-]?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?!\d)/g;
-      const intlRegex = /(?<![\d+])\+(?:\d[\s-]?){7,14}\d(?!\d)/g;
+      // intl: + then 8-15 digits; separators may be space, hyphen or parens
+      // (e.g. US "+1 (212) 555-0143"). Letters break the run, so it stays bounded.
+      const intlRegex = /(?<![\d+])\+\d(?:[\s()-]*\d){7,14}(?!\d)/g;
       const results: Detection[] = [];
       const seen = new Set<string>();
 

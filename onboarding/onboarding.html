@@ -20,8 +20,13 @@
     .copy-btn:hover { background: #0060df; }
     .badge { background: #e1f0ff; color: #007aff; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
     .synthetic { font-size: 12px; color: #888; margin-top: 8px; }
+    .cov { margin: 6px 0; }
+    .cov b { color: #007aff; }
     .cta { text-align: center; }
     .cta button { padding: 12px 24px; font-size: 16px; background: #007aff; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    .tiers { text-align: center; font-size: 13px; color: #666; margin-top: 20px; }
+    @media (prefers-color-scheme: dark) { .tiers { color: #aaa; } }
+    .tiers b { color: #007aff; }
   </style>
 </head>
 <body>
@@ -47,9 +52,19 @@
     <p>Когда AI ответит, используя метки (например, <i>«Уважаемый [PERSON_1]…»</i>), выделите текст ответа и нажмите <b>Alt+Shift+U</b>. Оригинальные данные вернутся локально в вашем браузере.</p>
   </div>
 
+  <div class="step">
+    <h2>🔎 Что распознаётся</h2>
+    <p class="cov"><b>Универсальные</b> (работают в любой стране): имена, email, телефоны, банковские карты, IBAN, IP-адреса, API-ключи и секреты.</p>
+    <p class="cov"><b>Россия:</b> ИНН, СНИЛС, ОГРН, паспорт, водительское удостоверение, полис ОМС, БИК, расчётный счёт, КПП — с проверкой контрольных сумм.</p>
+    <p class="cov"><b>США:</b> SSN, EIN, driver license, Medicare (MBI), ABA routing, банковский счёт, DUNS, SWIFT.</p>
+    <p class="synthetic">Россия и США — из коробки, как две парадигмы детекции: проверка контрольных сумм и распознавание по контексту. Движок не привязан к стране — универсальные типы работают везде, а любые свои сущности и другие страны добавляются правилами (в Pro), без изменения кода.</p>
+  </div>
+
   <div class="cta">
     <button id="demo-btn">Открыть демо в ChatGPT</button>
   </div>
+
+  <p class="tiers">Расширение бесплатно и полнофункционально. Для профессионалов и компаний <b>планируются</b> платные тарифы (Pro — усиленный NER, всё так же в браузере; Team — self-hosted-движок с файлами и аудитом) — см. маркетплейс.</p>
 
   <script src="onboarding.js"></script>
 </body>
