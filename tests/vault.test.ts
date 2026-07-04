@@ -224,6 +224,44 @@ describe('Round-trip property (random synthetic docs)', () => {
   });
 });
 
+describe('Placeholder styles', () => {
+  it('curly and guillemet styles round-trip', async () => {
+    for (const [style, open] of [['curly', '{{RU_INN_1}}'], ['guillemet', '«RU_INN_1»']] as const) {
+      sessionStore = makeStore();
+      localStore = makeStore();
+      (globalThis as any).chrome = { storage: { session: sessionStore, local: localStore } };
+      const text = 'ИНН 7712345671';
+      const masked = await Vault.mask(text, detect(text, engineConfig), session, style);
+      expect(masked, style).toContain(open);
+      const { text: restored, missing } = await Vault.restore(masked, session);
+      expect(restored, style).toBe(text);
+      expect(missing, style).toHaveLength(0);
+    }
+  });
+
+  it('seeds counters across styles so a pasted square token never collides', async () => {
+    const text = 'Ранее: [RU_INN_1]; новый ИНН 7712345671';
+    const masked = await Vault.mask(text, detect(text, engineConfig), session, 'curly');
+    expect(masked).toContain('{{RU_INN_2}}'); // not _1 — pasted [RU_INN_1] is respected
+    const { text: restored } = await Vault.restore(masked, session);
+    expect(restored).toBe(text); // literal [RU_INN_1] survives, {{RU_INN_2}} is restored
+  });
+});
+
+describe('listSessions (masked previews)', () => {
+  it('summarises entity counts by type, never raw values', async () => {
+    const text = 'Иванов Иван Иванович, ИНН 7712345671, ещё ИНН 771234567859';
+    await Vault.mask(text, detect(text, engineConfig), session);
+    const s = (await Vault.listSessions()).find(x => x.host === 'chatgpt.com');
+    expect(s).toBeDefined();
+    expect(s!.types.RU_INN).toBe(2);
+    expect(s!.types.PERSON).toBe(1);
+    const dump = JSON.stringify(s);
+    expect(dump).not.toContain('7712345671');
+    expect(dump).not.toContain('Иванов');
+  });
+});
+
 describe('PersistentVault (opt-in AES-GCM)', () => {
   it('persists encrypted and hydrates back with the right passphrase', async () => {
     const text = 'Плательщик Иванов Иван Иванович, СНИЛС 123-456-789 64.';

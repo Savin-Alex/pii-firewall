@@ -14,7 +14,9 @@ document.querySelectorAll('[data-copy]').forEach((btn) => {
 });
 
 document.getElementById('demo-btn')?.addEventListener('click', async () => {
-  await navigator.clipboard.writeText(DEMO_TEXT);
+  // Content script reads this flag on load and pastes the sample into the editor.
+  try { await chrome.storage.session.set({ pii_demo_pending: DEMO_TEXT }); } catch (e) { /* ignore */ }
+  await navigator.clipboard.writeText(DEMO_TEXT).catch(() => {});
   if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
     chrome.tabs.create({ url: 'https://chatgpt.com/' });
   } else {

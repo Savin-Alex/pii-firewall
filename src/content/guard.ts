@@ -6,6 +6,7 @@ import { appendInstruction } from './instruction';
 import { getCurrentSite } from './sites';
 import { incrementLeakCount } from '../settings';
 import { PlaceholderStyle } from '../vault/placeholder';
+import { t } from '../i18n';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, c => (
@@ -126,13 +127,13 @@ export class Guard {
       </style>
       <div class="overlay">
         <div class="modal">
-          <h2>Обнаружены персональные данные</h2>
-          <p>Вы пытаетесь отправить текст, содержащий чувствительную информацию:</p>
+          <h2>${t('guard_title')}</h2>
+          <p>${t('guard_desc')}</p>
           <div class="preview">${this.highlightText(text, detections)}</div>
           <div class="actions">
-            <button class="btn btn-primary" id="mask-send">Замаскировать и отправить</button>
-            <button class="btn btn-outline" id="send-anyway">Отправить как есть</button>
-            <button class="btn btn-outline" id="cancel">Отмена</button>
+            <button class="btn btn-primary" id="mask-send">${t('btn_mask_send')}</button>
+            <button class="btn btn-outline" id="send-anyway">${t('btn_send_anyway')}</button>
+            <button class="btn btn-outline" id="cancel">${t('btn_cancel')}</button>
           </div>
         </div>
       </div>

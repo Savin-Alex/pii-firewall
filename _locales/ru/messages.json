@@ -15,6 +15,7 @@
   "popup_demo_copied": { "message": "Пример скопирован — вставьте в чат (Ctrl/Cmd+V)" },
   "popup_forgotten": { "message": "Сессия забыта" },
   "popup_forgotten_all": { "message": "Все данные забыты" },
+  "popup_recent": { "message": "Недавние сессии" },
 
   "options_title": { "message": "Настройки PII Firewall" },
   "options_types": { "message": "Типы данных для маскирования" },
@@ -27,6 +28,14 @@
   "options_lang_auto": { "message": "Авто" },
   "options_lang_ru": { "message": "Русский" },
   "options_lang_en": { "message": "English" },
+  "options_placeholder": { "message": "Стиль меток" },
+  "options_placeholder_desc": { "message": "Квадратные скобки лучше переживают форматирование ответа" },
+  "options_sites": { "message": "Сайты и Guard" },
+  "options_export": { "message": "Экспорт" },
+  "options_import": { "message": "Импорт" },
+  "options_exported": { "message": "Настройки экспортированы" },
+  "options_imported": { "message": "Настройки импортированы" },
+  "options_import_error": { "message": "Не удалось импортировать файл" },
   "options_persistence": { "message": "Постоянное хранилище (опционально)" },
   "options_persist_label": { "message": "Шифрованное хранилище" },
   "options_persist_desc": { "message": "AES-GCM, ключ из пароля. По умолчанию vault очищается при закрытии браузера." },
@@ -49,5 +58,13 @@
   "btn_cancel": { "message": "Отмена" },
   "status_ready": { "message": "Готов к защите" },
   "toast_no_pii": { "message": "ПДн не обнаружены" },
-  "toast_restored": { "message": "Восстановлено в буфер обмена" }
+  "toast_restored": { "message": "Восстановлено в буфер обмена" },
+  "btn_mask": { "message": "Замаскировать" },
+  "btn_restore": { "message": "Восстановить" },
+  "toast_no_editor": { "message": "Поле ввода не найдено" },
+  "toast_storage_error": { "message": "Хранилище недоступно — отмена" },
+  "toast_mask_error": { "message": "Ошибка маскирования" },
+  "widget_protected": { "message": "Защищено сущностей" },
+  "toast_clip_missing": { "message": "В буфере; неизвестных меток" },
+  "toast_missing": { "message": "Неизвестных меток" }
 }

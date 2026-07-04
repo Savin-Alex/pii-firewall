@@ -56,7 +56,18 @@
         <option value="en" data-i18n="options_lang_en">English</option>
       </select>
     </div>
+    <div class="row">
+      <div class="info"><span class="label" data-i18n="options_placeholder">Стиль меток</span><span class="desc" data-i18n="options_placeholder_desc">Квадратные скобки лучше переживают форматирование ответа</span></div>
+      <select id="placeholder-style">
+        <option value="square">[PERSON_1]</option>
+        <option value="curly">{{PERSON_1}}</option>
+        <option value="guillemet">«PERSON_1»</option>
+      </select>
+    </div>
   </div>
+
+  <h2 data-i18n="options_sites">Сайты и Guard</h2>
+  <div class="card" id="sites-list"></div>
 
   <h2 data-i18n="options_persistence">Постоянное хранилище (опционально)</h2>
   <div class="card">
@@ -76,7 +87,10 @@
 
   <div class="actions">
     <button id="save" data-i18n="options_save">Сохранить</button>
+    <button id="export" class="secondary" data-i18n="options_export">Экспорт</button>
+    <button id="import" class="secondary" data-i18n="options_import">Импорт</button>
     <button id="forget-all" class="secondary" data-i18n="options_forget_all">Забыть всё</button>
+    <input type="file" id="import-file" accept="application/json" hidden>
     <span class="saved" id="saved"></span>
   </div>
 

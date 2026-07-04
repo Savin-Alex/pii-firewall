@@ -5,6 +5,8 @@ import { t, localizeDom } from '../i18n';
 
 // Synthetic sample for demo mode (checksum-valid, never real data).
 const DEMO_TEXT = 'Договор №42. Заказчик: Иванов Пётр Сергеевич, ИНН 7712345671, тел. +7 916 123-45-67, e-mail p.ivanov@example.com. Прошу подготовить акт выполненных работ.';
+// Content script reads this key on load and pastes the sample into the editor.
+const DEMO_KEY = 'pii_demo_pending';
 
 function toast(msg: string) {
   const el = document.getElementById('toast');
@@ -30,6 +32,7 @@ async function updateUI() {
 
   const settings = await loadSettings();
   document.getElementById('stats-count')!.textContent = String(await getLeakCount());
+  await renderSessions();
 
   if (site) {
     guardRow.style.display = '';
@@ -47,8 +50,31 @@ async function updateUI() {
   }
 }
 
+async function renderSessions() {
+  const box = document.getElementById('sessions');
+  if (!box) return;
+  box.textContent = '';
+  let sessions: Awaited<ReturnType<typeof Vault.listSessions>> = [];
+  try { sessions = await Vault.listSessions(); } catch { /* no storage */ }
+  for (const s of sessions.slice(0, 5)) {
+    const row = document.createElement('div');
+    row.className = 'session';
+    const host = document.createElement('div');
+    host.className = 'session-host';
+    host.textContent = `${s.host}${s.path.length > 1 ? s.path : ''}`;
+    const types = document.createElement('div');
+    types.className = 'session-types';
+    // masked preview: only type counts, never raw values
+    types.textContent = Object.entries(s.types).map(([tp, n]) => (n > 1 ? `${tp}×${n}` : tp)).join(', ');
+    row.append(host, types);
+    box.appendChild(row);
+  }
+}
+
 document.getElementById('demo')?.addEventListener('click', async () => {
-  await navigator.clipboard.writeText(DEMO_TEXT);
+  // Stash the sample so the content script pastes it, with clipboard as fallback.
+  try { await chrome.storage.session.set({ [DEMO_KEY]: DEMO_TEXT }); } catch { /* ignore */ }
+  await navigator.clipboard.writeText(DEMO_TEXT).catch(() => {});
   await chrome.tabs.create({ url: 'https://chatgpt.com/' });
   toast(t('popup_demo_copied'));
 });

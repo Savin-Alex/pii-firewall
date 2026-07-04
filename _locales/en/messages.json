@@ -15,6 +15,7 @@
   "popup_demo_copied": { "message": "Sample copied — paste into the chat (Ctrl/Cmd+V)" },
   "popup_forgotten": { "message": "Session forgotten" },
   "popup_forgotten_all": { "message": "All data forgotten" },
+  "popup_recent": { "message": "Recent sessions" },
 
   "options_title": { "message": "PII Firewall settings" },
   "options_types": { "message": "Data types to mask" },
@@ -27,6 +28,14 @@
   "options_lang_auto": { "message": "Auto" },
   "options_lang_ru": { "message": "Русский" },
   "options_lang_en": { "message": "English" },
+  "options_placeholder": { "message": "Placeholder style" },
+  "options_placeholder_desc": { "message": "Square brackets survive reply formatting best" },
+  "options_sites": { "message": "Sites and Guard" },
+  "options_export": { "message": "Export" },
+  "options_import": { "message": "Import" },
+  "options_exported": { "message": "Settings exported" },
+  "options_imported": { "message": "Settings imported" },
+  "options_import_error": { "message": "Could not import the file" },
   "options_persistence": { "message": "Persistent storage (optional)" },
   "options_persist_label": { "message": "Encrypted storage" },
   "options_persist_desc": { "message": "AES-GCM, key derived from a passphrase. By default the vault clears when the browser closes." },
@@ -49,5 +58,13 @@
   "btn_cancel": { "message": "Cancel" },
   "status_ready": { "message": "Ready to protect" },
   "toast_no_pii": { "message": "No PII detected" },
-  "toast_restored": { "message": "Restored to clipboard" }
+  "toast_restored": { "message": "Restored to clipboard" },
+  "btn_mask": { "message": "Mask" },
+  "btn_restore": { "message": "Restore" },
+  "toast_no_editor": { "message": "Editor not found" },
+  "toast_storage_error": { "message": "Storage unavailable — cancelled" },
+  "toast_mask_error": { "message": "Masking error" },
+  "widget_protected": { "message": "Protected entities" },
+  "toast_clip_missing": { "message": "In clipboard; unknown placeholders" },
+  "toast_missing": { "message": "Unknown placeholders" }
 }

@@ -4,8 +4,7 @@ import { detect } from '../engine/engine';
 import { Detection, EngineConfig } from '../engine/types';
 import { readEditor, writeEditor } from './editor';
 import { appendInstruction, stripInstruction } from './instruction';
-
-const READY_STATUS = 'Готов к защите';
+import { t } from '../i18n';
 
 export class Widget {
   private container: HTMLElement;
@@ -89,10 +88,10 @@ export class Widget {
           <span>PII Firewall</span>
           <span style="cursor:pointer" id="close">×</span>
         </div>
-        <div class="status" id="status">${READY_STATUS}</div>
+        <div class="status" id="status">${t('status_ready')}</div>
         <div class="chips" id="chips"></div>
-        <button class="btn" id="mask-btn">Замаскировать</button>
-        <button class="btn btn-secondary" id="restore-btn">Восстановить</button>
+        <button class="btn" id="mask-btn">${t('btn_mask')}</button>
+        <button class="btn btn-secondary" id="restore-btn">${t('btn_restore')}</button>
       </div>
     `;
 
@@ -107,7 +106,7 @@ export class Widget {
   async mask(): Promise<void> {
     const editor = this.editorResolver();
     if (!editor) {
-      this.showToast('Поле ввода не найдено');
+      this.showToast(t('toast_no_editor'));
       return;
     }
 
@@ -116,7 +115,7 @@ export class Widget {
 
     if (detections.length === 0) {
       this.renderChips([]);
-      this.showToast('ПДн не обнаружены');
+      this.showToast(t('toast_no_pii'));
       return;
     }
 
@@ -124,9 +123,9 @@ export class Widget {
       const masked = await Vault.mask(text, detections, this.sessionProvider(), this.styleProvider());
       await writeEditor(editor, this.instructionProvider() ? appendInstruction(masked) : masked);
       this.renderChips(detections);
-      this.updateStatus(`Защищено сущностей: ${detections.length}`);
+      this.updateStatus(`${t('widget_protected')}: ${detections.length}`);
     } catch (e) {
-      this.showToast(e instanceof VaultStorageError ? 'Хранилище недоступно — отмена' : 'Ошибка маскирования');
+      this.showToast(e instanceof VaultStorageError ? t('toast_storage_error') : t('toast_mask_error'));
     }
   }
 
@@ -138,13 +137,13 @@ export class Widget {
     if (selection && selection.includes('[')) {
       const { text: restored, missing } = await Vault.restore(stripInstruction(selection), session);
       await navigator.clipboard.writeText(restored);
-      this.showToast(missing.length ? `В буфере; неизвестных меток: ${missing.length}` : 'Восстановлено в буфер обмена');
+      this.showToast(missing.length ? `${t('toast_clip_missing')}: ${missing.length}` : t('toast_restored'));
       return;
     }
 
     const editor = this.editorResolver();
     if (!editor) {
-      this.showToast('Поле ввода не найдено');
+      this.showToast(t('toast_no_editor'));
       return;
     }
 
@@ -152,9 +151,9 @@ export class Widget {
     const { text: restored, missing } = await Vault.restore(text, session);
     await writeEditor(editor, restored);
     if (missing.length > 0) {
-      this.showToast(`Неизвестных меток: ${missing.length}`);
+      this.showToast(`${t('toast_missing')}: ${missing.length}`);
     } else {
-      this.updateStatus(READY_STATUS);
+      this.updateStatus(t('status_ready'));
       this.renderChips([]);
     }
   }
@@ -183,6 +182,6 @@ export class Widget {
     if (!el) return;
     el.textContent = msg;
     clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => { el.textContent = READY_STATUS; }, 3000);
+    this.toastTimer = setTimeout(() => { el.textContent = t('status_ready'); }, 3000);
   }
 }
