@@ -1,5 +1,5 @@
 import { Detection, Confidence } from './types';
-import { validateLuhn, validateSNILS, validateINN, validateOGRN, validateIBAN } from './checksums';
+import { validateLuhn, validateSNILS, validateINN, validateOGRN, validateIBAN, validateBankAccount } from './checksums';
 
 export interface Detector {
   type: string;
@@ -190,6 +190,50 @@ export const detectors: Detector[] = [
     }
   },
   {
+    type: 'RU_BIK',
+    detect: (text) => {
+      // БИК РФ: 9 цифр, всегда с префиксом 04. Контекст «БИК» усиливает.
+      const regex = /\b04\d{7}\b/g;
+      return Array.from(text.matchAll(regex))
+        .filter(m => /БИК/i.test(context(text, m.index!, m[0].length, 20)))
+        .map(m => ({
+          type: 'RU_BIK', start: m.index!, end: m.index! + m[0].length,
+          value: m[0], confidence: 'high' as Confidence, validator: 'format' as const
+        }));
+    }
+  },
+  {
+    type: 'RU_BANK_ACCOUNT',
+    detect: (text) => {
+      // Расчётный/корр. счёт: 20 цифр. Если рядом есть БИК — проверяем контрольный ключ.
+      const regex = /\b\d{20}\b/g;
+      return Array.from(text.matchAll(regex))
+        .filter(m => /сч[её]т|р\/с|к\/с|расч[её]тн|корреспондент|account/i.test(context(text, m.index!, m[0].length, 40)))
+        .map(m => {
+          const bik = context(text, m.index!, m[0].length, 80).match(/\b04\d{7}\b/);
+          const valid = bik ? validateBankAccount(m[0], bik[0]) : false;
+          return {
+            type: 'RU_BANK_ACCOUNT', start: m.index!, end: m.index! + m[0].length, value: m[0],
+            confidence: (valid ? 'high' : 'medium') as Confidence,
+            validator: (valid ? 'checksum' : 'format') as 'checksum' | 'format'
+          };
+        });
+    }
+  },
+  {
+    type: 'RU_KPP',
+    detect: (text) => {
+      // КПП: 9 цифр, всегда в паре с ИНН в реквизитах. Строго по контексту.
+      const regex = /\b\d{9}\b/g;
+      return Array.from(text.matchAll(regex))
+        .filter(m => /КПП/i.test(context(text, m.index!, m[0].length, 20)))
+        .map(m => ({
+          type: 'RU_KPP', start: m.index!, end: m.index! + m[0].length,
+          value: m[0], confidence: 'medium' as Confidence, validator: 'format' as const
+        }));
+    }
+  },
+  {
     type: 'IBAN',
     scanView: 'folded',
     detect: (text) => {
@@ -228,6 +272,50 @@ export const detectors: Detector[] = [
     }
   },
   {
+    type: 'US_EIN',
+    detect: (text) => {
+      // Employer Identification Number: XX-XXXXXXX. No public checksum → context-cued.
+      const regex = /\b\d{2}-\d{7}\b/g;
+      return Array.from(text.matchAll(regex))
+        .filter(m => /\bEIN\b|employer identification|tax[\s-]?id|\bIRS\b/i.test(context(text, m.index!, m[0].length, 30)))
+        .map(m => ({
+          type: 'US_EIN', start: m.index!, end: m.index! + m[0].length,
+          value: m[0], confidence: 'medium' as Confidence, validator: 'format' as const
+        }));
+    }
+  },
+  {
+    type: 'US_DRIVER_LICENSE',
+    detect: (text) => {
+      // State formats vary wildly with no checksum — anchor strictly on context,
+      // capturing the licence value that follows the cue.
+      const regex = /(?:\bDL\b|driver'?s?\s+licen[sc]e)[\s:#№]*([A-Z0-9]{5,13})\b/gi;
+      const results: Detection[] = [];
+      for (const m of text.matchAll(regex)) {
+        const val = m[1];
+        const start = m.index! + m[0].lastIndexOf(val);
+        results.push({ type: 'US_DRIVER_LICENSE', start, end: start + val.length, value: val, confidence: 'medium', validator: 'format' });
+      }
+      return results;
+    }
+  },
+  {
+    type: 'US_MEDICARE',
+    detect: (text) => {
+      // Medicare Beneficiary Identifier (MBI), 11 chars; letters exclude S,L,O,I,B,Z.
+      // Displayed with optional hyphens: 1EG4-TE5-MK73.
+      const L = '[ACDEFGHJKMNPQRTUVWXY]';
+      const LN = '[ACDEFGHJKMNPQRTUVWXY0-9]';
+      const regex = new RegExp(`\\b[1-9]${L}${LN}\\d-?${L}${LN}\\d-?${L}${L}\\d\\d\\b`, 'g');
+      return Array.from(text.matchAll(regex))
+        .filter(m => /medicare|\bMBI\b|insurance/i.test(context(text, m.index!, m[0].length, 30)))
+        .map(m => ({
+          type: 'US_MEDICARE', start: m.index!, end: m.index! + m[0].length,
+          value: m[0], confidence: 'medium' as Confidence, validator: 'format' as const
+        }));
+    }
+  },
+  {
     // Opt-in: not part of default enabled types — plain dd.mm.yyyy dates are too noisy.
     type: 'DATE_OF_BIRTH',
     detect: (text) => {
@@ -246,17 +334,41 @@ export const detectors: Detector[] = [
     }
   },
   {
+    type: 'RU_DRIVER_LICENSE',
+    detect: (text) => {
+      // Серия 4 цифры (часто 2+2) + номер 6 цифр = 10 цифр. Формат совпадает с
+      // паспортом РФ — различает только контекст (в/у, водительское, права).
+      const regex = /\b\d{2}[ ]?\d{2}[ ]?\d{6}\b|\b\d{4}[ ]?\d{6}\b/g;
+      // No ASCII \b around Cyrillic words — JS word boundaries don't fire on Cyrillic.
+      return Array.from(text.matchAll(regex))
+        .filter(m => /водительс|удостоверен|в[/.]у|driver|licen[sc]e/i.test(context(text, m.index!, m[0].length, 40)))
+        .map(m => ({
+          type: 'RU_DRIVER_LICENSE',
+          start: m.index!,
+          end: m.index! + m[0].length,
+          value: m[0],
+          confidence: 'medium' as Confidence,
+          validator: 'format' as const
+        }));
+    }
+  },
+  {
     type: 'IP_ADDRESS',
     detect: (text) => {
+      const results: Detection[] = [];
       const ipv4 = /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g;
-      return Array.from(text.matchAll(ipv4)).map(m => ({
-        type: 'IP_ADDRESS',
-        start: m.index!,
-        end: m.index! + m[0].length,
-        value: m[0],
-        confidence: 'medium',
-        validator: 'format'
-      }));
+      for (const m of text.matchAll(ipv4)) {
+        results.push({ type: 'IP_ADDRESS', start: m.index!, end: m.index! + m[0].length, value: m[0], confidence: 'medium', validator: 'format' });
+      }
+      // IPv6 full + compressed (::) forms; lookarounds keep matches out of longer hex/colon runs.
+      const ipv6 = /(?<![0-9A-Fa-f:])(?:(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,5}(?::[0-9A-Fa-f]{1,4}){1,2}|(?:[0-9A-Fa-f]{1,4}:){1,4}(?::[0-9A-Fa-f]{1,4}){1,3}|(?:[0-9A-Fa-f]{1,4}:){1,3}(?::[0-9A-Fa-f]{1,4}){1,4}|(?:[0-9A-Fa-f]{1,4}:){1,2}(?::[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:(?::[0-9A-Fa-f]{1,4}){1,6}|:(?:(?::[0-9A-Fa-f]{1,4}){1,7}|:))(?![0-9A-Fa-f:])/g;
+      for (const m of text.matchAll(ipv6)) {
+        // At least two colons — drops degenerate one-group matches.
+        if ((m[0].match(/:/g) || []).length >= 2) {
+          results.push({ type: 'IP_ADDRESS', start: m.index!, end: m.index! + m[0].length, value: m[0], confidence: 'medium', validator: 'format' });
+        }
+      }
+      return results;
     }
   }
 ];

@@ -4,7 +4,7 @@
   "version": "0.5.0",
   "default_locale": "ru",
   "description": "__MSG_extension_description__",
-  "permissions": ["storage"],
+  "permissions": ["storage", "activeTab", "contextMenus"],
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -24,7 +24,11 @@
         "https://gemini.google.com/*",
         "https://www.perplexity.ai/*",
         "https://perplexity.ai/*",
-        "https://poe.com/*"
+        "https://poe.com/*",
+        "https://chat.deepseek.com/*",
+        "https://grok.com/*",
+        "https://alice.yandex.ru/*",
+        "https://giga.chat/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"

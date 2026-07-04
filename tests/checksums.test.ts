@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { validateLuhn, validateSNILS, validateINN, validateOGRN, validateIBAN } from '../src/engine/checksums';
+import { validateLuhn, validateSNILS, validateINN, validateOGRN, validateIBAN, validateBankAccount } from '../src/engine/checksums';
+
+function makeValidAccount(base19: string, bik: string): string {
+  for (let d = 0; d <= 9; d++) if (validateBankAccount(base19 + d, bik)) return base19 + d;
+  throw new Error('no control digit');
+}
 
 // All values are synthetic: check digits computed by scripts/generate-corpus.ts helpers.
 describe('Checksums', () => {
@@ -37,6 +42,17 @@ describe('Checksums', () => {
     // 15 digits (OGRNIP)
     expect(validateOGRN('312770001234569')).toBe(true);
     expect(validateOGRN('312770001234560')).toBe(false);
+  });
+
+  it('Bank account (control key vs BIK)', () => {
+    const bik = '044525999'; // synthetic БИК (starts 04)
+    const acc = makeValidAccount('4070281050000000123', bik);
+    expect(validateBankAccount(acc, bik)).toBe(true);
+    // flip the control digit -> invalid
+    expect(validateBankAccount(acc.slice(0, -1) + ((Number(acc.slice(-1)) + 1) % 10), bik)).toBe(false);
+    // wrong lengths
+    expect(validateBankAccount('123', bik)).toBe(false);
+    expect(validateBankAccount(acc, '04452599')).toBe(false);
   });
 
   it('IBAN', () => {

@@ -1,0 +1,36 @@
+PII Firewall — Proprietary, Source-Available License
+Copyright (c) 2026 Savin-Alex. All rights reserved.
+
+("Program" = the PII Firewall browser extension and its source code in this
+repository. "Author" = the copyright holder above.)
+
+1. GRANT. The Author grants you a free, personal, non-exclusive, non-transferable
+   right to install and use the compiled Program for your own personal or
+   internal business purposes.
+
+2. SOURCE VISIBILITY. The source code is published for transparency and security
+   audit (so anyone can verify the "zero network permissions" claim). Visibility
+   does NOT make the Program open-source and grants no rights beyond Section 1.
+
+3. RESTRICTIONS. Without the Author's prior written permission you may not:
+   (a) redistribute, resell, sublicense, or publish the Program or substantial
+       parts of it, in source or compiled form;
+   (b) modify the Program and distribute the result;
+   (c) use the Program or its code to build or operate a competing product;
+   (d) remove or alter copyright, license, or attribution notices.
+
+4. PAID FEATURES. Any "Pro" / "Team" features are licensed separately under the
+   Author's commercial terms and are not covered by the grant in Section 1.
+
+5. THIRD-PARTY COMPONENTS. Build-time dependencies (e.g. vite, vitest,
+   typescript, jsdom) are licensed by their respective owners under the MIT
+   license and are not redistributed inside the shipped extension.
+
+6. NO WARRANTY. THE PROGRAM IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+   It is a risk-reduction tool, NOT a certified information-security or
+   data-protection product. THE AUTHOR IS NOT LIABLE FOR ANY CLAIM, DAMAGE, OR
+   OTHER LIABILITY ARISING FROM THE USE OF THE PROGRAM.
+
+7. RESERVATION. All rights not expressly granted here are reserved by the Author.
+
+For commercial licensing or permissions: policeman000@gmail.com

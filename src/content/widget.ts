@@ -2,7 +2,7 @@ import { Vault, VaultSession, VaultStorageError } from '../vault/vault';
 import { PlaceholderStyle } from '../vault/placeholder';
 import { detect } from '../engine/engine';
 import { Detection, EngineConfig } from '../engine/types';
-import { readEditor, writeEditor } from './editor';
+import { readEditor, writeEditor, replaceSelection } from './editor';
 import { appendInstruction, stripInstruction } from './instruction';
 import { t } from '../i18n';
 
@@ -124,6 +124,28 @@ export class Widget {
       await writeEditor(editor, this.instructionProvider() ? appendInstruction(masked) : masked);
       this.renderChips(detections);
       this.updateStatus(`${t('widget_protected')}: ${detections.length}`);
+    } catch (e) {
+      this.showToast(e instanceof VaultStorageError ? t('toast_storage_error') : t('toast_mask_error'));
+    }
+  }
+
+  /** Masks the current page selection in place (editable) or into the clipboard. */
+  async maskSelection(): Promise<void> {
+    const text = window.getSelection()?.toString() ?? '';
+    if (!text.trim()) { this.showToast(t('toast_no_selection')); return; }
+
+    const detections = detect(text, this.configProvider());
+    if (detections.length === 0) { this.showToast(t('toast_no_pii')); return; }
+
+    try {
+      const masked = await Vault.mask(text, detections, this.sessionProvider(), this.styleProvider());
+      if (replaceSelection(masked)) {
+        this.renderChips(detections);
+        this.updateStatus(`${t('widget_protected')}: ${detections.length}`);
+      } else {
+        await navigator.clipboard.writeText(masked);
+        this.showToast(t('toast_masked_clip'));
+      }
     } catch (e) {
       this.showToast(e instanceof VaultStorageError ? t('toast_storage_error') : t('toast_mask_error'));
     }

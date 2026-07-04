@@ -84,6 +84,37 @@ export async function writeEditor(el: HTMLElement, text: string): Promise<void> 
   }
 }
 
+/**
+ * Replaces the current selection in place if it sits in an editable field
+ * (textarea/input via native setter, or contenteditable via insertText).
+ * Returns false for non-editable page text (caller should fall back to clipboard).
+ */
+export function replaceSelection(masked: string): boolean {
+  const el = document.activeElement;
+  if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+    const start = el.selectionStart, end = el.selectionEnd;
+    if (start === null || end === null || start === end) return false;
+    const setter = Object.getOwnPropertyDescriptor(
+      el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value'
+    )?.set;
+    const next = el.value.slice(0, start) + masked + el.value.slice(end);
+    if (setter) setter.call(el, next); else el.value = next;
+    el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+    return true;
+  }
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+    const node = sel.anchorNode;
+    const host = (node instanceof HTMLElement ? node : node?.parentElement)?.closest('[contenteditable="true"]');
+    if (host && typeof document.execCommand === 'function') {
+      document.execCommand('insertText', false, masked);
+      host.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+      return true;
+    }
+  }
+  return false;
+}
+
 function isVisible(el: HTMLElement): boolean {
   const rect = el.getBoundingClientRect();
   return rect.width > 1 && rect.height > 1;

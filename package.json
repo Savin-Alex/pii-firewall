@@ -3,6 +3,7 @@
   "version": "0.5.0",
   "description": "PII Firewall - Browser extension for local PII masking",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { detect } from '../src/engine/engine';
 import { detectPersonRu } from '../src/engine/person_ru';
+import { validateBankAccount } from '../src/engine/checksums';
 import { EngineConfig } from '../src/engine/types';
 
 const defaultConfig: EngineConfig = {
-  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_OMS', 'IBAN', 'US_SSN', 'IP_ADDRESS', 'PERSON', 'SECRET'],
+  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_DRIVER_LICENSE', 'RU_OMS', 'RU_BIK', 'RU_BANK_ACCOUNT', 'RU_KPP', 'IBAN', 'US_SSN', 'US_EIN', 'US_DRIVER_LICENSE', 'US_MEDICARE', 'IP_ADDRESS', 'PERSON', 'SECRET'],
   minConfidence: 'medium',
   language: 'auto'
 };
@@ -121,6 +122,40 @@ describe('Context-dependent confidence', () => {
   });
 });
 
+describe('IPv6', () => {
+  it('detects full and compressed IPv6 addresses', () => {
+    for (const ip of ['2001:0db8:85a3:0000:0000:8a2e:0370:7334', '2001:db8::1', 'fe80::1ff:fe23:4567:890a', '::1']) {
+      const results = detect(`сервер ${ip} доступен`, defaultConfig);
+      expect(results.some(d => d.type === 'IP_ADDRESS' && d.value === ip), ip).toBe(true);
+    }
+  });
+
+  it('does not match MAC addresses or clock times', () => {
+    expect(detect('MAC 01:23:45:67:89:ab устройства', defaultConfig).some(d => d.type === 'IP_ADDRESS')).toBe(false);
+    expect(detect('время 12:34:56 по МСК', defaultConfig).some(d => d.type === 'IP_ADDRESS')).toBe(false);
+  });
+});
+
+describe('RU_DRIVER_LICENSE', () => {
+  it('detects a licence number only with driver-licence context', () => {
+    expect(detect('в/у 12 34 567890 выдано ГИБДД', defaultConfig)
+      .some(d => d.type === 'RU_DRIVER_LICENSE' && d.value === '12 34 567890')).toBe(true);
+    expect(detect('водительское удостоверение 1234 567890', defaultConfig)
+      .some(d => d.type === 'RU_DRIVER_LICENSE')).toBe(true);
+  });
+
+  it('does not fire on the same digits without context', () => {
+    expect(detect('номер 12 34 567890 в накладной', defaultConfig)
+      .some(d => d.type === 'RU_DRIVER_LICENSE')).toBe(false);
+  });
+
+  it('passport context yields passport, not driver licence', () => {
+    const r = detect('паспорт 1234 567890 выдан', defaultConfig);
+    expect(r.some(d => d.type === 'RU_PASSPORT')).toBe(true);
+    expect(r.some(d => d.type === 'RU_DRIVER_LICENSE')).toBe(false);
+  });
+});
+
 describe('US_SSN', () => {
   it('should detect a well-formed SSN', () => {
     const results = detect('SSN: 123-45-6789', defaultConfig);
@@ -132,6 +167,45 @@ describe('US_SSN', () => {
       const results = detect(`SSN: ${ssn}`, defaultConfig);
       expect(results.some(d => d.type === 'US_SSN'), ssn).toBe(false);
     }
+  });
+});
+
+describe('RU banking (B2B, context-cued)', () => {
+  it('RU_BIK only with БИК context', () => {
+    expect(detect('БИК 044525225 банка', defaultConfig).some(d => d.type === 'RU_BIK' && d.value === '044525225')).toBe(true);
+    expect(detect('код 044525225 записан', defaultConfig).some(d => d.type === 'RU_BIK')).toBe(false);
+  });
+
+  it('RU_KPP only with КПП context', () => {
+    expect(detect('КПП 770101001', defaultConfig).some(d => d.type === 'RU_KPP' && d.value === '770101001')).toBe(true);
+    expect(detect('номер 770101001 в списке', defaultConfig).some(d => d.type === 'RU_KPP')).toBe(false);
+  });
+
+  it('RU_BANK_ACCOUNT: high with valid control key + БИК, medium on context only', () => {
+    const bik = '044525999';
+    let acc = '';
+    for (let d = 0; d <= 9; d++) { const c = '4070281050000000123' + d; if (validateBankAccount(c, bik)) { acc = c; break; } }
+    expect(detect(`р/с ${acc} в банке, БИК ${bik}`, defaultConfig).find(d => d.type === 'RU_BANK_ACCOUNT')?.confidence).toBe('high');
+    expect(detect(`расчётный счёт ${acc} уточняется`, defaultConfig).find(d => d.type === 'RU_BANK_ACCOUNT')?.confidence).toBe('medium');
+    expect(detect(`число ${acc} в отчёте`, defaultConfig).some(d => d.type === 'RU_BANK_ACCOUNT')).toBe(false);
+  });
+});
+
+describe('US identifiers (context-cued)', () => {
+  it('US_EIN only with tax context', () => {
+    expect(detect('EIN 12-3456789 on file', defaultConfig).some(d => d.type === 'US_EIN' && d.value === '12-3456789')).toBe(true);
+    expect(detect('order 12-3456789 shipped', defaultConfig).some(d => d.type === 'US_EIN')).toBe(false);
+  });
+
+  it('US_DRIVER_LICENSE captures the value after the cue', () => {
+    const r = detect("Driver's license D1234567 issued in CA", defaultConfig);
+    expect(r.some(d => d.type === 'US_DRIVER_LICENSE' && d.value === 'D1234567')).toBe(true);
+  });
+
+  it('US_MEDICARE (MBI) only with medicare context', () => {
+    expect(detect('Medicare MBI 1EG4TE5MK73', defaultConfig).some(d => d.type === 'US_MEDICARE')).toBe(true);
+    expect(detect('Medicare 1EG4-TE5-MK73 active', defaultConfig).some(d => d.type === 'US_MEDICARE' && d.value === '1EG4-TE5-MK73')).toBe(true);
+    expect(detect('code 1EG4TE5MK73 random', defaultConfig).some(d => d.type === 'US_MEDICARE')).toBe(false);
   });
 });
 

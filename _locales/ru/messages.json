@@ -39,7 +39,10 @@
   "options_persistence": { "message": "Постоянное хранилище (опционально)" },
   "options_persist_label": { "message": "Шифрованное хранилище" },
   "options_persist_desc": { "message": "AES-GCM, ключ из пароля. По умолчанию vault очищается при закрытии браузера." },
-  "options_persist_enable": { "message": "Включить" },
+  "options_persist_enable": { "message": "Сохранить" },
+  "options_persist_restore": { "message": "Восстановить" },
+  "options_persist_restored": { "message": "Хранилище восстановлено" },
+  "options_persist_empty": { "message": "Нечего сохранять — vault пуст" },
   "options_persist_disable": { "message": "Отключить" },
   "options_persist_hint": { "message": "Пароль нигде не сохраняется. Забыли пароль — данные не восстановить." },
   "options_persist_on": { "message": "включено" },
@@ -66,5 +69,8 @@
   "toast_mask_error": { "message": "Ошибка маскирования" },
   "widget_protected": { "message": "Защищено сущностей" },
   "toast_clip_missing": { "message": "В буфере; неизвестных меток" },
-  "toast_missing": { "message": "Неизвестных меток" }
+  "toast_missing": { "message": "Неизвестных меток" },
+  "toast_no_selection": { "message": "Ничего не выделено" },
+  "toast_masked_clip": { "message": "Замаскировано в буфер обмена" },
+  "ctx_mask_selection": { "message": "Замаскировать выделение (PII Firewall)" }
 }

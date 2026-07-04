@@ -99,16 +99,19 @@ async function consumeDemo(): Promise<void> {
     return;
   }
   if (!pending) return;
-  await chrome.storage.session.remove(DEMO_KEY);
 
-  for (let attempt = 0; attempt < 20; attempt++) {
+  // Poll ~20s for the editor. Consume the flag ONLY after a successful paste —
+  // if a login wall or slow load hides the editor, the flag survives so the next
+  // load on this site still pastes (it clears when the browser closes anyway).
+  for (let attempt = 0; attempt < 40; attempt++) {
     const editor = resolveEditor(site);
     if (editor) {
       await writeEditor(editor, pending);
+      await chrome.storage.session.remove(DEMO_KEY);
       widget?.ensureAttached();
       return;
     }
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 500));
   }
 }
 
@@ -126,6 +129,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
   chrome.runtime.onMessage.addListener((message) => {
     if (message?.command === 'mask-prompt') void widget?.mask();
     else if (message?.command === 'restore-text') void widget?.restore();
+    else if (message?.command === 'mask-selection') void widget?.maskSelection();
   });
 }
 

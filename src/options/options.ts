@@ -1,5 +1,5 @@
 import { Vault, PersistentVault } from '../vault/vault';
-import { PII_TYPES, loadSettings, saveSettings, DEFAULT_SETTINGS, Settings } from '../settings';
+import { PII_TYPES, PII_GROUPS, loadSettings, saveSettings, DEFAULT_SETTINGS, Settings } from '../settings';
 import { SITES } from '../content/sites';
 import { PlaceholderStyle } from '../vault/placeholder';
 import { t, uiLang, localizeDom } from '../i18n';
@@ -38,36 +38,74 @@ function renderSites(disabled: string[]) {
   }
 }
 
+function makeSwitch(cls: string, checked: boolean): { label: HTMLLabelElement; input: HTMLInputElement } {
+  const label = document.createElement('label');
+  label.className = 'switch';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.className = cls;
+  input.checked = checked;
+  const slider = document.createElement('span');
+  slider.className = 'slider';
+  label.append(input, slider);
+  return { label, input };
+}
+
+function refreshMaster(group: string) {
+  const boxes = Array.from(document.querySelectorAll<HTMLInputElement>(`.type-checkbox[data-group="${group}"]`));
+  const master = document.querySelector<HTMLInputElement>(`.group-master[data-group="${group}"]`);
+  if (!master) return;
+  const on = boxes.filter(b => b.checked).length;
+  master.checked = on === boxes.length;
+  master.indeterminate = on > 0 && on < boxes.length;
+}
+
 function renderTypes(enabled: string[]) {
   const container = document.getElementById('types-list')!;
   container.textContent = '';
-  for (const type of PII_TYPES) {
-    const row = document.createElement('div');
-    row.className = 'row';
 
-    const info = document.createElement('div');
-    info.className = 'info';
-    const label = document.createElement('span');
-    label.className = 'label';
-    label.textContent = type.label[lang];
-    const desc = document.createElement('span');
-    desc.className = 'desc';
-    desc.textContent = type.desc[lang];
-    info.append(label, desc);
+  for (const group of PII_GROUPS) {
+    const types = PII_TYPES.filter(t => t.group === group.id);
+    if (types.length === 0) continue;
 
-    const sw = document.createElement('label');
-    sw.className = 'switch';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'type-checkbox';
-    cb.dataset.id = type.id;
-    cb.checked = enabled.includes(type.id);
-    const slider = document.createElement('span');
-    slider.className = 'slider';
-    sw.append(cb, slider);
+    // group header + master toggle
+    const header = document.createElement('div');
+    header.className = 'row group-row';
+    const gLabel = document.createElement('span');
+    gLabel.className = 'group-label';
+    gLabel.textContent = group.label[lang];
+    const { label: gSwitch, input: master } = makeSwitch('group-master', false);
+    master.dataset.group = group.id;
+    master.addEventListener('change', () => {
+      document.querySelectorAll<HTMLInputElement>(`.type-checkbox[data-group="${group.id}"]`)
+        .forEach(cb => { cb.checked = master.checked; });
+      master.indeterminate = false;
+    });
+    header.append(gLabel, gSwitch);
+    container.appendChild(header);
 
-    row.append(info, sw);
-    container.appendChild(row);
+    for (const type of types) {
+      const row = document.createElement('div');
+      row.className = 'row type-row';
+      const info = document.createElement('div');
+      info.className = 'info';
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = type.label[lang];
+      const desc = document.createElement('span');
+      desc.className = 'desc';
+      desc.textContent = type.desc[lang];
+      info.append(label, desc);
+
+      const { label: sw, input: cb } = makeSwitch('type-checkbox', enabled.includes(type.id));
+      cb.dataset.id = type.id;
+      cb.dataset.group = group.id;
+      cb.addEventListener('change', () => refreshMaster(group.id));
+
+      row.append(info, sw);
+      container.appendChild(row);
+    }
+    refreshMaster(group.id);
   }
 }
 
@@ -154,15 +192,35 @@ importFile.addEventListener('change', async () => {
   }
 });
 
+function passphrase(): string {
+  return (document.getElementById('passphrase') as HTMLInputElement).value;
+}
+
 document.getElementById('persist-enable')?.addEventListener('click', async () => {
-  const pass = (document.getElementById('passphrase') as HTMLInputElement).value;
+  const pass = passphrase();
   if (pass.length < 6) { flash(t('options_persist_weak')); return; }
+  // Don't overwrite an existing snapshot with an empty session (e.g. right after
+  // a browser restart, before the user has restored).
+  const sessions = await Vault.listSessions().catch(() => []);
+  if (sessions.length === 0 && await PersistentVault.isEnabled()) { flash(t('options_persist_empty')); return; }
   try {
     await PersistentVault.persist(pass);
     document.getElementById('persist-status')!.textContent = t('options_persist_on');
     flash(t('options_saved'));
   } catch {
     flash(t('options_persist_error'));
+  }
+});
+
+document.getElementById('persist-restore')?.addEventListener('click', async () => {
+  const pass = passphrase();
+  if (pass.length < 6) { flash(t('options_persist_weak')); return; }
+  try {
+    const n = await PersistentVault.hydrate(pass);
+    document.getElementById('persist-status')!.textContent = t('options_persist_on');
+    flash(n > 0 ? t('options_persist_restored') : t('options_persist_empty'));
+  } catch {
+    flash(t('options_persist_error')); // wrong passphrase or corrupted blob
   }
 });
 

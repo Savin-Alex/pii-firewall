@@ -7,8 +7,24 @@ export interface L10n {
   en: string;
 }
 
+export interface PiiGroup {
+  id: string;
+  label: L10n;
+}
+
+/** Display groups for the options UI (rendered in this order, each with a master toggle). */
+export const PII_GROUPS: PiiGroup[] = [
+  { id: 'identity', label: { ru: 'Личность и контакты', en: 'Identity & contacts' } },
+  { id: 'ru', label: { ru: 'Документы РФ', en: 'Russian documents' } },
+  { id: 'us', label: { ru: 'Документы США', en: 'US documents' } },
+  { id: 'financial', label: { ru: 'Финансы', en: 'Financial' } },
+  { id: 'business', label: { ru: 'Реквизиты компаний (РФ)', en: 'RU company details' } },
+  { id: 'tech', label: { ru: 'Технические и секреты', en: 'Technical & secrets' } }
+];
+
 export interface PiiTypeMeta {
   id: string;
+  group: string;
   label: L10n;
   desc: L10n;
   /** Whether the type is on in a fresh install. DATE_OF_BIRTH is opt-in (spec M1). */
@@ -17,20 +33,32 @@ export interface PiiTypeMeta {
 
 /** Every detector the UI can toggle. `SECRET` is the umbrella for all SECRET_* subtypes. */
 export const PII_TYPES: PiiTypeMeta[] = [
-  { id: 'PERSON', label: { ru: 'ФИО', en: 'Names' }, desc: { ru: 'Имена, фамилии, отчества', en: 'Full names and patronymics' }, defaultOn: true },
-  { id: 'EMAIL', label: { ru: 'Email', en: 'Email' }, desc: { ru: 'Адреса электронной почты', en: 'Email addresses' }, defaultOn: true },
-  { id: 'PHONE', label: { ru: 'Телефоны', en: 'Phones' }, desc: { ru: 'Российские и международные номера', en: 'RU and international numbers' }, defaultOn: true },
-  { id: 'CARD', label: { ru: 'Банковские карты', en: 'Bank cards' }, desc: { ru: 'Номера карт (проверка Луна)', en: 'Card numbers (Luhn)' }, defaultOn: true },
-  { id: 'RU_INN', label: { ru: 'ИНН', en: 'INN (RU tax id)' }, desc: { ru: 'ИНН физлиц и организаций', en: 'RU taxpayer number' }, defaultOn: true },
-  { id: 'RU_SNILS', label: { ru: 'СНИЛС', en: 'SNILS' }, desc: { ru: 'Страховой номер счёта', en: 'RU insurance account number' }, defaultOn: true },
-  { id: 'RU_OGRN', label: { ru: 'ОГРН', en: 'OGRN' }, desc: { ru: 'Регистрационный номер (13/15)', en: 'RU company registration id' }, defaultOn: true },
-  { id: 'RU_PASSPORT', label: { ru: 'Паспорт РФ', en: 'RU passport' }, desc: { ru: 'Серия и номер по контексту', en: 'Series+number by context' }, defaultOn: true },
-  { id: 'RU_OMS', label: { ru: 'Полис ОМС', en: 'OMS policy' }, desc: { ru: '16 цифр, проверка Луна', en: '16 digits, Luhn' }, defaultOn: true },
-  { id: 'IBAN', label: { ru: 'IBAN', en: 'IBAN' }, desc: { ru: 'Счёт IBAN (mod-97)', en: 'IBAN account (mod-97)' }, defaultOn: true },
-  { id: 'US_SSN', label: { ru: 'SSN (США)', en: 'US SSN' }, desc: { ru: 'Номер соц. страхования США', en: 'US social security number' }, defaultOn: true },
-  { id: 'IP_ADDRESS', label: { ru: 'IP-адреса', en: 'IP addresses' }, desc: { ru: 'IPv4', en: 'IPv4' }, defaultOn: true },
-  { id: 'SECRET', label: { ru: 'Секреты', en: 'Secrets' }, desc: { ru: 'API-ключи, токены, пароли', en: 'API keys, tokens, passwords' }, defaultOn: true },
-  { id: 'DATE_OF_BIRTH', label: { ru: 'Дата рождения', en: 'Date of birth' }, desc: { ru: 'Опционально — по умолчанию выкл.', en: 'Opt-in — off by default' }, defaultOn: false }
+  { id: 'PERSON', group: 'identity', label: { ru: 'ФИО', en: 'Names' }, desc: { ru: 'Имена, фамилии, отчества', en: 'Full names and patronymics' }, defaultOn: true },
+  { id: 'DATE_OF_BIRTH', group: 'identity', label: { ru: 'Дата рождения', en: 'Date of birth' }, desc: { ru: 'Опционально — по умолчанию выкл.', en: 'Opt-in — off by default' }, defaultOn: false },
+  { id: 'EMAIL', group: 'identity', label: { ru: 'Email', en: 'Email' }, desc: { ru: 'Адреса электронной почты', en: 'Email addresses' }, defaultOn: true },
+  { id: 'PHONE', group: 'identity', label: { ru: 'Телефоны', en: 'Phones' }, desc: { ru: 'Российские и международные номера', en: 'RU and international numbers' }, defaultOn: true },
+
+  { id: 'RU_INN', group: 'ru', label: { ru: 'ИНН', en: 'INN (RU tax id)' }, desc: { ru: 'ИНН физлиц и организаций', en: 'RU taxpayer number' }, defaultOn: true },
+  { id: 'RU_SNILS', group: 'ru', label: { ru: 'СНИЛС', en: 'SNILS' }, desc: { ru: 'Страховой номер счёта', en: 'RU insurance account number' }, defaultOn: true },
+  { id: 'RU_OGRN', group: 'ru', label: { ru: 'ОГРН', en: 'OGRN' }, desc: { ru: 'Регистрационный номер (13/15)', en: 'RU company registration id' }, defaultOn: true },
+  { id: 'RU_PASSPORT', group: 'ru', label: { ru: 'Паспорт РФ', en: 'RU passport' }, desc: { ru: 'Серия и номер по контексту', en: 'Series+number by context' }, defaultOn: true },
+  { id: 'RU_DRIVER_LICENSE', group: 'ru', label: { ru: 'Водительское удостоверение', en: 'RU driver license' }, desc: { ru: 'Серия и номер по контексту', en: 'Series+number by context' }, defaultOn: true },
+  { id: 'RU_OMS', group: 'ru', label: { ru: 'Полис ОМС', en: 'OMS policy' }, desc: { ru: '16 цифр, проверка Луна', en: '16 digits, Luhn' }, defaultOn: true },
+
+  { id: 'US_SSN', group: 'us', label: { ru: 'SSN (США)', en: 'US SSN' }, desc: { ru: 'Номер соц. страхования США', en: 'US social security number' }, defaultOn: true },
+  { id: 'US_EIN', group: 'us', label: { ru: 'EIN (Tax ID США)', en: 'US EIN (tax id)' }, desc: { ru: 'Налоговый номер работодателя, по контексту', en: 'Employer tax id, by context' }, defaultOn: true },
+  { id: 'US_DRIVER_LICENSE', group: 'us', label: { ru: 'Driver License (США)', en: 'US driver license' }, desc: { ru: 'По контексту (формат зависит от штата)', en: 'By context (state-dependent)' }, defaultOn: true },
+  { id: 'US_MEDICARE', group: 'us', label: { ru: 'Medicare (США)', en: 'US Medicare' }, desc: { ru: 'Номер MBI, по контексту', en: 'MBI number, by context' }, defaultOn: true },
+
+  { id: 'CARD', group: 'financial', label: { ru: 'Банковские карты', en: 'Bank cards' }, desc: { ru: 'Номера карт (проверка Луна)', en: 'Card numbers (Luhn)' }, defaultOn: true },
+  { id: 'IBAN', group: 'financial', label: { ru: 'IBAN', en: 'IBAN' }, desc: { ru: 'Счёт IBAN (mod-97)', en: 'IBAN account (mod-97)' }, defaultOn: true },
+
+  { id: 'RU_BANK_ACCOUNT', group: 'business', label: { ru: 'Расчётный / корр. счёт', en: 'RU bank account' }, desc: { ru: '20 цифр, проверка ключа по БИК', en: '20 digits, control key vs BIK' }, defaultOn: true },
+  { id: 'RU_BIK', group: 'business', label: { ru: 'БИК', en: 'BIK' }, desc: { ru: 'Банковский идентификационный код', en: 'RU bank identifier code' }, defaultOn: true },
+  { id: 'RU_KPP', group: 'business', label: { ru: 'КПП', en: 'KPP' }, desc: { ru: 'Код причины постановки на учёт', en: 'RU tax registration reason code' }, defaultOn: true },
+
+  { id: 'IP_ADDRESS', group: 'tech', label: { ru: 'IP-адреса', en: 'IP addresses' }, desc: { ru: 'IPv4 и IPv6', en: 'IPv4 and IPv6' }, defaultOn: true },
+  { id: 'SECRET', group: 'tech', label: { ru: 'Секреты', en: 'Secrets' }, desc: { ru: 'API-ключи, токены, пароли', en: 'API keys, tokens, passwords' }, defaultOn: true }
 ];
 
 export const DEFAULT_ENABLED_TYPES = PII_TYPES.filter(t => t.defaultOn).map(t => t.id);

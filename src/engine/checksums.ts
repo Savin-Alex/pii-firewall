@@ -84,3 +84,21 @@ export function validateIBAN(iban: string): boolean {
   }
   return remainder === 1n;
 }
+
+/**
+ * Russian bank account control-key check (ЦБ РФ). Needs the BIK:
+ * settlement accounts use the BIK's last 3 digits as prefix; correspondent
+ * accounts (starting 301) use "0" + BIK positions 5-6. Weighted 7-1-3 over the
+ * 23-digit string, each product mod 10, total mod 10 must be 0.
+ */
+export function validateBankAccount(account: string, bik: string): boolean {
+  const acc = account.replace(/\D/g, '');
+  const b = bik.replace(/\D/g, '');
+  if (acc.length !== 20 || b.length !== 9) return false;
+  const prefix = acc.startsWith('301') ? '0' + b.substring(4, 6) : b.substring(6, 9);
+  const full = prefix + acc; // 23 digits
+  const weights = [7, 1, 3];
+  let sum = 0;
+  for (let i = 0; i < 23; i++) sum += (parseInt(full[i], 10) * weights[i % 3]) % 10;
+  return sum % 10 === 0;
+}

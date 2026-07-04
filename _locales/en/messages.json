@@ -39,7 +39,10 @@
   "options_persistence": { "message": "Persistent storage (optional)" },
   "options_persist_label": { "message": "Encrypted storage" },
   "options_persist_desc": { "message": "AES-GCM, key derived from a passphrase. By default the vault clears when the browser closes." },
-  "options_persist_enable": { "message": "Enable" },
+  "options_persist_enable": { "message": "Save" },
+  "options_persist_restore": { "message": "Restore" },
+  "options_persist_restored": { "message": "Vault restored" },
+  "options_persist_empty": { "message": "Nothing to save — vault is empty" },
   "options_persist_disable": { "message": "Disable" },
   "options_persist_hint": { "message": "The passphrase is never stored. Forget it and the data is unrecoverable." },
   "options_persist_on": { "message": "on" },
@@ -66,5 +69,8 @@
   "toast_mask_error": { "message": "Masking error" },
   "widget_protected": { "message": "Protected entities" },
   "toast_clip_missing": { "message": "In clipboard; unknown placeholders" },
-  "toast_missing": { "message": "Unknown placeholders" }
+  "toast_missing": { "message": "Unknown placeholders" },
+  "toast_no_selection": { "message": "Nothing selected" },
+  "toast_masked_clip": { "message": "Masked to clipboard" },
+  "ctx_mask_selection": { "message": "Mask selection (PII Firewall)" }
 }

@@ -42,6 +42,36 @@ export const SITES: SiteConfig[] = [
     editor: 'textarea[class*="GrowingTextArea"], textarea, [role="textbox"]',
     send: 'button[class*="sendButton"], button[aria-label*="Send"]',
     draftPaths: []
+  },
+  // --- Dedicated chat hosts only (host-matched → widget shows on the whole host).
+  // Selectors are best-effort; verify on the live sites and adjust here. ---
+  {
+    id: 'deepseek',
+    match: ['chat.deepseek.com'],
+    editor: 'textarea#chat-input, textarea, [contenteditable="true"], [role="textbox"]',
+    send: 'div[role="button"], button[aria-label*="Send"], button[type="submit"]',
+    draftPaths: ['/']
+  },
+  {
+    id: 'grok',
+    match: ['grok.com'],
+    editor: 'textarea, [contenteditable="true"], [role="textbox"]',
+    send: 'button[type="submit"], button[aria-label*="Submit"], button[aria-label*="Send"]',
+    draftPaths: ['/']
+  },
+  {
+    id: 'yandexgpt',
+    match: ['alice.yandex.ru'],
+    editor: 'textarea, [contenteditable="true"], [role="textbox"]',
+    send: 'button[type="submit"], button[aria-label*="Отправить"], button[aria-label*="Send"]',
+    draftPaths: ['/']
+  },
+  {
+    id: 'gigachat',
+    match: ['giga.chat'],
+    editor: 'textarea, [contenteditable="true"], [role="textbox"]',
+    send: 'button[type="submit"], button[aria-label*="Отправить"], button[aria-label*="Send"]',
+    draftPaths: ['/']
   }
 ];
 

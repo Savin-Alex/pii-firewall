@@ -12,10 +12,12 @@
     h1 { text-align: center; color: #007aff; margin-bottom: 32px; }
     h2 { margin-top: 0; display: flex; align-items: center; gap: 10px; font-size: 18px; }
     .step-num { background: #007aff; color: white; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 16px; flex: none; }
-    .example-box { background: #fff; border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-top: 16px; position: relative; }
+    .example-box { background: #fff; border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-top: 16px; }
     @media (prefers-color-scheme: dark) { .example-box { background: #1a1a1a; border-color: #444; } }
-    .example-box code { display: block; padding-right: 96px; word-break: break-word; }
-    .copy-btn { position: absolute; top: 10px; right: 10px; padding: 6px 12px; font-size: 12px; cursor: pointer; background: #eee; border: 1px solid #ccc; border-radius: 4px; }
+    .example-head { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+    .example-box code { display: block; word-break: break-word; }
+    .copy-btn { padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; background: #007aff; color: #fff; border: none; border-radius: 6px; min-width: 120px; text-align: center; }
+    .copy-btn:hover { background: #0060df; }
     .badge { background: #e1f0ff; color: #007aff; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
     .synthetic { font-size: 12px; color: #888; margin-top: 8px; }
     .cta { text-align: center; }
@@ -29,7 +31,7 @@
     <h2><span class="step-num">1</span> Попробуйте на примере</h2>
     <p>Скопируйте этот <b>синтетический</b> текст и вставьте его в любой AI-чат (ChatGPT, Claude и др.):</p>
     <div class="example-box">
-      <button class="copy-btn" data-copy="ex1">Копировать</button>
+      <div class="example-head"><button class="copy-btn" data-copy="ex1">Копировать</button></div>
       <code id="ex1">Договор №42. Заказчик: Иванов Пётр Сергеевич (ИНН 7712345671). Телефон: +7 916 123-45-67. Прошу составить акт приёмки.</code>
     </div>
     <div class="synthetic">Данные вымышленные, контрольные суммы синтетические — не реальные ПДн.</div>
