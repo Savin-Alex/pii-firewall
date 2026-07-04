@@ -1,5 +1,5 @@
 import { Detection, Confidence } from './types';
-import { validateLuhn, validateSNILS, validateINN, validateOGRN, validateIBAN, validateBankAccount } from './checksums';
+import { validateLuhn, validateSNILS, validateINN, validateOGRN, validateIBAN, validateBankAccount, validateABA } from './checksums';
 
 export interface Detector {
   type: string;
@@ -230,6 +230,64 @@ export const detectors: Detector[] = [
         .map(m => ({
           type: 'RU_KPP', start: m.index!, end: m.index! + m[0].length,
           value: m[0], confidence: 'medium' as Confidence, validator: 'format' as const
+        }));
+    }
+  },
+  {
+    type: 'US_ROUTING',
+    detect: (text) => {
+      // ABA routing number: 9 digits, 3-7-1 checksum. US analogue of БИК.
+      const regex = /\b\d{9}\b/g;
+      return Array.from(text.matchAll(regex))
+        .filter(m => validateABA(m[0]))
+        .map(m => {
+          // Without a routing cue, ~10% of 9-digit order/ID numbers pass the ABA
+          // checksum — keep those at 'low' so they don't surface at default medium.
+          const hasCtx = /routing|\bABA\b|\bRTN\b|transit/i.test(context(text, m.index!, m[0].length, 30));
+          return {
+            type: 'US_ROUTING', start: m.index!, end: m.index! + m[0].length, value: m[0],
+            confidence: (hasCtx ? 'high' : 'low') as Confidence, validator: 'checksum' as const
+          };
+        });
+    }
+  },
+  {
+    type: 'SWIFT_BIC',
+    scanView: 'folded',
+    detect: (text) => {
+      // SWIFT/BIC: 4 bank + 2 country + 2 location (+ optional 3 branch). Context-cued.
+      const regex = /\b[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b/g;
+      return Array.from(text.matchAll(regex))
+        .filter(m => /swift|\bBIC\b/i.test(context(text, m.index!, m[0].length, 20)))
+        .map(m => ({
+          type: 'SWIFT_BIC', start: m.index!, end: m.index! + m[0].length, value: m[0],
+          confidence: 'high' as Confidence, validator: 'format' as const
+        }));
+    }
+  },
+  {
+    type: 'US_BANK_ACCOUNT',
+    detect: (text) => {
+      // US account numbers vary in length with no standard checksum → strict context.
+      const regex = /\b\d{6,17}\b/g;
+      return Array.from(text.matchAll(regex))
+        .filter(m => /account\s*(?:no\.?|number|#)|\bacct\b|checking|savings/i.test(context(text, m.index!, m[0].length, 30)))
+        .map(m => ({
+          type: 'US_BANK_ACCOUNT', start: m.index!, end: m.index! + m[0].length, value: m[0],
+          confidence: 'medium' as Confidence, validator: 'format' as const
+        }));
+    }
+  },
+  {
+    type: 'US_DUNS',
+    detect: (text) => {
+      // Dun & Bradstreet business id: 9 digits (sometimes XX-XXX-XXXX). Context-cued.
+      const regex = /\b\d{2}-\d{3}-\d{4}\b|\b\d{9}\b/g;
+      return Array.from(text.matchAll(regex))
+        .filter(m => /\bDUNS\b|D-U-N-S/i.test(context(text, m.index!, m[0].length, 20)))
+        .map(m => ({
+          type: 'US_DUNS', start: m.index!, end: m.index! + m[0].length, value: m[0],
+          confidence: 'medium' as Confidence, validator: 'format' as const
         }));
     }
   },

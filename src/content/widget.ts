@@ -1,5 +1,5 @@
 import { Vault, VaultSession, VaultStorageError } from '../vault/vault';
-import { PlaceholderStyle } from '../vault/placeholder';
+import { PlaceholderStyle, placeholderPattern } from '../vault/placeholder';
 import { detect } from '../engine/engine';
 import { Detection, EngineConfig } from '../engine/types';
 import { readEditor, writeEditor, replaceSelection } from './editor';
@@ -129,13 +129,21 @@ export class Widget {
     }
   }
 
-  /** Masks the current page selection in place (editable) or into the clipboard. */
-  async maskSelection(): Promise<void> {
-    const text = window.getSelection()?.toString() ?? '';
+  /**
+   * Masks the current page selection in place (editable) or into the clipboard.
+   * Hybrid: recognised PII is masked per-entity; if the engine finds nothing, the
+   * user deliberately selected this text, so the whole selection is masked as one
+   * block ([MASKED_1]). `selectionText` (from the context menu) is a fallback for
+   * textareas, where window.getSelection() returns nothing.
+   */
+  async maskSelection(selectionText?: string): Promise<void> {
+    const text = window.getSelection()?.toString() || selectionText || '';
     if (!text.trim()) { this.showToast(t('toast_no_selection')); return; }
 
-    const detections = detect(text, this.configProvider());
-    if (detections.length === 0) { this.showToast(t('toast_no_pii')); return; }
+    let detections = detect(text, this.configProvider());
+    if (detections.length === 0) {
+      detections = [{ type: 'MASKED', start: 0, end: text.length, value: text, confidence: 'high', validator: 'heuristic' }];
+    }
 
     try {
       const masked = await Vault.mask(text, detections, this.sessionProvider(), this.styleProvider());
@@ -155,8 +163,9 @@ export class Widget {
     const session = this.sessionProvider();
 
     // Selection first: restore an AI reply fragment into the clipboard.
+    // Match any placeholder style ([X_1], {{X_1}}, «X_1»), not just square brackets.
     const selection = window.getSelection()?.toString();
-    if (selection && selection.includes('[')) {
+    if (selection && placeholderPattern().test(selection)) {
       const { text: restored, missing } = await Vault.restore(stripInstruction(selection), session);
       await navigator.clipboard.writeText(restored);
       this.showToast(missing.length ? `${t('toast_clip_missing')}: ${missing.length}` : t('toast_restored'));

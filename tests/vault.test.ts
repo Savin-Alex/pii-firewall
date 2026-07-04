@@ -299,4 +299,17 @@ describe('PersistentVault (opt-in AES-GCM)', () => {
     expect(await PersistentVault.isEnabled()).toBe(false);
     expect(await PersistentVault.hydrate('right-pass')).toBe(0);
   });
+
+  it('clearAll leaves the persistent snapshot — "forget all" must also disable() to fully wipe', async () => {
+    const text = 'ИНН 7712345671';
+    await Vault.mask(text, detect(text, engineConfig), session);
+    await PersistentVault.persist('pw123456');
+    expect(await PersistentVault.isEnabled()).toBe(true);
+
+    await Vault.clearAll();
+    expect(await PersistentVault.isEnabled()).toBe(true); // clearAll is session-only by design
+
+    await PersistentVault.disable();
+    expect(await PersistentVault.isEnabled()).toBe(false);
+  });
 });

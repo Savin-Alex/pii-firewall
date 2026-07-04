@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateLuhn, validateSNILS, validateINN, validateOGRN, validateIBAN, validateBankAccount } from '../src/engine/checksums';
+import { validateLuhn, validateSNILS, validateINN, validateOGRN, validateIBAN, validateBankAccount, validateABA } from '../src/engine/checksums';
 
 function makeValidAccount(base19: string, bik: string): string {
   for (let d = 0; d <= 9; d++) if (validateBankAccount(base19 + d, bik)) return base19 + d;
@@ -53,6 +53,13 @@ describe('Checksums', () => {
     // wrong lengths
     expect(validateBankAccount('123', bik)).toBe(false);
     expect(validateBankAccount(acc, '04452599')).toBe(false);
+  });
+
+  it('ABA routing (3-7-1 checksum)', () => {
+    expect(validateABA('123456780')).toBe(true);
+    expect(validateABA('123456781')).toBe(false);
+    expect(validateABA('000000000')).toBe(false); // sum zero
+    expect(validateABA('12345678')).toBe(false);   // wrong length
   });
 
   it('IBAN', () => {

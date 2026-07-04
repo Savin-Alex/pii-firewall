@@ -4,6 +4,7 @@ import { Widget } from './widget';
 import { Guard } from './guard';
 import { Vault, VaultSession } from '../vault/vault';
 import { Settings, DEFAULT_SETTINGS, loadSettings, toEngineConfig, guardActiveForSite } from '../settings';
+import { setUiLang } from '../i18n';
 
 const DEMO_KEY = 'pii_demo_pending';
 
@@ -59,6 +60,7 @@ function startWatchdog(): void {
 async function init(): Promise<void> {
   site = getCurrentSite();
   settings = await loadSettings();
+  setUiLang(settings.uiLanguage); // widget/guard strings follow the chosen UI language
   session = { tabId: await fetchTabId(), url: window.location.href };
 
   // Providers read the live `settings`, so an options change applies without reload.
@@ -119,7 +121,7 @@ async function consumeDemo(): Promise<void> {
 if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.settings) {
-      void loadSettings().then(s => { settings = s; });
+      void loadSettings().then(s => { settings = s; setUiLang(s.uiLanguage); });
     }
   });
 }
@@ -129,7 +131,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
   chrome.runtime.onMessage.addListener((message) => {
     if (message?.command === 'mask-prompt') void widget?.mask();
     else if (message?.command === 'restore-text') void widget?.restore();
-    else if (message?.command === 'mask-selection') void widget?.maskSelection();
+    else if (message?.command === 'mask-selection') void widget?.maskSelection(message.selectionText);
   });
 }
 

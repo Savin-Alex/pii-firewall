@@ -1,4 +1,6 @@
 // Service worker: storage access for content scripts, tab ids, hotkey forwarding.
+import { t, setUiLang } from '../i18n';
+import { loadSettings } from '../settings';
 
 // chrome.storage.session is TRUSTED_CONTEXTS-only by default — without this call
 // every Vault operation in a content script fails. Runs on each SW start.
@@ -19,24 +21,35 @@ const SITE_PATTERNS = [
   'https://alice.yandex.ru/*', 'https://giga.chat/*'
 ];
 
+// (Re)creates the context menu with a title in the chosen UI language.
+async function refreshContextMenu(): Promise<void> {
+  setUiLang((await loadSettings()).uiLanguage);
+  await chrome.contextMenus.removeAll();
+  chrome.contextMenus.create({
+    id: 'pii-mask-selection',
+    title: t('ctx_mask_selection'),
+    contexts: ['selection'],
+    documentUrlPatterns: SITE_PATTERNS
+  });
+}
+
 // First run: open onboarding + register the "mask selection" context-menu item.
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     chrome.tabs.create({ url: chrome.runtime.getURL('onboarding/onboarding.html') });
   }
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
-      id: 'pii-mask-selection',
-      title: chrome.i18n.getMessage('ctx_mask_selection') || 'Замаскировать выделение (PII Firewall)',
-      contexts: ['selection'],
-      documentUrlPatterns: SITE_PATTERNS
-    });
-  });
+  void refreshContextMenu();
+});
+
+// Keep the menu title in sync when the interface language changes.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) void refreshContextMenu();
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'pii-mask-selection' && tab?.id) {
-    chrome.tabs.sendMessage(tab.id, { command: 'mask-selection' }).catch(() => {});
+    // selectionText also carries textarea selections that window.getSelection() misses.
+    chrome.tabs.sendMessage(tab.id, { command: 'mask-selection', selectionText: info.selectionText }).catch(() => {});
   }
 });
 

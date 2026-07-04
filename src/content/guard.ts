@@ -1,7 +1,7 @@
 import { detect } from '../engine/engine';
 import { Detection, EngineConfig } from '../engine/types';
 import { Vault, VaultSession } from '../vault/vault';
-import { readEditor, writeEditor } from './editor';
+import { readEditor, writeEditor, resolveEditor } from './editor';
 import { appendInstruction } from './instruction';
 import { getCurrentSite } from './sites';
 import { incrementLeakCount } from '../settings';
@@ -62,7 +62,9 @@ export class Guard {
     const sendButton = target.closest(site.send);
 
     if (sendButton) {
-      const editor = document.querySelector(site.editor) as HTMLElement;
+      // Visible-editor resolution + geometric fallback (same as the widget) — a
+      // stale/hidden first match on SPAs would otherwise let a send slip through.
+      const editor = resolveEditor(site);
       if (editor) {
         await this.intercept(e, editor);
       }

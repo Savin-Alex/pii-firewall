@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   DEFAULT_SETTINGS, DEFAULT_ENABLED_TYPES, PII_TYPES,
   loadSettings, saveSettings, toEngineConfig, guardActiveForSite,
-  getLeakCount, incrementLeakCount
+  getLeakCount, incrementLeakCount, sanitizeSettings
 } from '../src/settings';
 
 function mockLocal() {
@@ -65,6 +65,35 @@ describe('Persisted settings', () => {
     await incrementLeakCount();
     await incrementLeakCount();
     expect(await getLeakCount()).toBe(2);
+  });
+});
+
+describe('sanitizeSettings (import validation)', () => {
+  it('keeps valid values and drops malformed ones', () => {
+    const out = sanitizeSettings({
+      enabledTypes: ['EMAIL', 'BOGUS', 123],
+      minConfidence: 'ultra',
+      language: 'ru',
+      guardEnabled: 'yes',
+      instructionEnabled: false,
+      guardDisabledSites: ['poe', 5],
+      placeholderStyle: 'square',
+      evil: 'x'
+    });
+    expect(out.enabledTypes).toEqual(['EMAIL']);
+    expect(out.minConfidence).toBeUndefined();
+    expect(out.language).toBe('ru');
+    expect(out.guardEnabled).toBeUndefined();
+    expect(out.instructionEnabled).toBe(false);
+    expect(out.guardDisabledSites).toEqual(['poe']);
+    expect(out.placeholderStyle).toBe('square');
+    expect((out as Record<string, unknown>).evil).toBeUndefined();
+  });
+
+  it('returns {} for non-objects', () => {
+    expect(sanitizeSettings(null)).toEqual({});
+    expect(sanitizeSettings('nope')).toEqual({});
+    expect(sanitizeSettings(42)).toEqual({});
   });
 });
 

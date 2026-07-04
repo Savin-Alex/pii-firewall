@@ -3,6 +3,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { getCurrentSite } from '../src/content/sites';
 import { appendInstruction, stripInstruction } from '../src/content/instruction';
 import { readEditor, writeEditor, resolveEditor, findFallbackEditor } from '../src/content/editor';
+import { Widget } from '../src/content/widget';
+import { Vault } from '../src/vault/vault';
+import { detect } from '../src/engine/engine';
+import { EngineConfig } from '../src/engine/types';
 
 describe('Site matching', () => {
   it('matches known hosts exactly or by dot-suffix', () => {
@@ -132,5 +136,86 @@ describe('Editor resolution', () => {
 
   it('returns null when nothing suitable exists', () => {
     expect(findFallbackEditor()).toBeNull();
+  });
+});
+
+describe('Context-menu mask selection (hybrid)', () => {
+  const config: EngineConfig = { enabledTypes: ['EMAIL', 'PERSON'], minConfidence: 'medium', language: 'auto' };
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    const store: Record<string, any> = {};
+    (globalThis as any).chrome = { storage: { session: {
+      get: async (k: string) => ({ [k]: store[k] }),
+      set: async (o: Record<string, any>) => { Object.assign(store, o); },
+      remove: async () => {}, clear: async () => {}
+    } } };
+  });
+
+  function selectInTextarea(value: string, sel: string) {
+    const ta = document.createElement('textarea');
+    ta.value = value;
+    document.body.appendChild(ta);
+    ta.focus();
+    const start = value.indexOf(sel);
+    ta.setSelectionRange(start, start + sel.length);
+    (window as any).getSelection = () => ({ toString: () => sel, rangeCount: 0, isCollapsed: false });
+    return ta;
+  }
+
+  function makeWidget() {
+    return new Widget(() => ({ tabId: 1, url: 'https://chatgpt.com/c/1' }), () => config, () => null);
+  }
+
+  it('masks the WHOLE selection as one block when no PII is recognised', async () => {
+    const ta = selectInTextarea('please hide THIS SECRET PHRASE now', 'THIS SECRET PHRASE');
+    await makeWidget().maskSelection('THIS SECRET PHRASE');
+    expect(ta.value).toBe('please hide [MASKED_1] now');
+  });
+
+  it('masks recognised PII per-entity, not as a block', async () => {
+    const ta = selectInTextarea('write to test@example.com please', 'test@example.com');
+    await makeWidget().maskSelection('test@example.com');
+    expect(ta.value).toBe('write to [EMAIL_1] please');
+    expect(ta.value).not.toContain('MASKED');
+  });
+
+  it('uses the selectionText fallback when window.getSelection() is empty (real textarea case)', async () => {
+    const ta = document.createElement('textarea');
+    ta.value = 'hide THIS BLOCK now';
+    document.body.appendChild(ta);
+    ta.focus();
+    const sel = 'THIS BLOCK';
+    const start = ta.value.indexOf(sel);
+    ta.setSelectionRange(start, start + sel.length);
+    // Real textareas return "" from window.getSelection() — only selectionText carries the text.
+    (window as any).getSelection = () => ({ toString: () => '', rangeCount: 0, isCollapsed: true });
+
+    await makeWidget().maskSelection(sel);
+    expect(ta.value).toBe('hide [MASKED_1] now'); // reached via selectionText fallback, replaced via selectionStart/End
+  });
+
+  it('does nothing when neither getSelection nor selectionText has text', async () => {
+    const ta = document.createElement('textarea');
+    ta.value = 'unchanged text';
+    document.body.appendChild(ta);
+    ta.focus();
+    (window as any).getSelection = () => ({ toString: () => '', rangeCount: 0, isCollapsed: true });
+    await makeWidget().maskSelection(undefined);
+    expect(ta.value).toBe('unchanged text');
+  });
+
+  it('restores a selected reply for a non-square placeholder style ({{...}})', async () => {
+    const session = { tabId: 7, url: 'https://chatgpt.com/c/7' };
+    const cfg: EngineConfig = { enabledTypes: ['RU_INN'], minConfidence: 'medium', language: 'auto' };
+    await Vault.mask('ИНН 7712345671', detect('ИНН 7712345671', cfg), session, 'curly'); // -> {{RU_INN_1}}
+
+    const widget = new Widget(() => session, () => cfg, () => null);
+    (window as any).getSelection = () => ({ toString: () => 'Ваш {{RU_INN_1}} принят' });
+    let clip = '';
+    (navigator as any).clipboard = { writeText: async (s: string) => { clip = s; } };
+
+    await widget.restore(); // must enter the selection→clipboard path despite no '['
+    expect(clip).toContain('7712345671');
   });
 });

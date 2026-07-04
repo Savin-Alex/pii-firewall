@@ -86,6 +86,16 @@ export function validateIBAN(iban: string): boolean {
 }
 
 /**
+ * US ABA routing number checksum: 9 digits, weighted 3-7-1, sum mod 10 == 0.
+ */
+export function validateABA(routing: string): boolean {
+  const d = routing.replace(/\D/g, '');
+  if (d.length !== 9) return false;
+  const sum = 3 * (+d[0] + +d[3] + +d[6]) + 7 * (+d[1] + +d[4] + +d[7]) + (+d[2] + +d[5] + +d[8]);
+  return sum > 0 && sum % 10 === 0;
+}
+
+/**
  * Russian bank account control-key check (ЦБ РФ). Needs the BIK:
  * settlement accounts use the BIK's last 3 digits as prefix; correspondent
  * accounts (starting 301) use "0" + BIK positions 5-6. Weighted 7-1-3 over the

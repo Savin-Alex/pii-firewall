@@ -1,10 +1,8 @@
 import { Vault, PersistentVault } from '../vault/vault';
-import { PII_TYPES, PII_GROUPS, loadSettings, saveSettings, DEFAULT_SETTINGS, Settings } from '../settings';
+import { PII_TYPES, PII_GROUPS, loadSettings, saveSettings, sanitizeSettings, Settings } from '../settings';
 import { SITES } from '../content/sites';
 import { PlaceholderStyle } from '../vault/placeholder';
-import { t, uiLang, localizeDom } from '../i18n';
-
-const lang = uiLang();
+import { t, uiLang, setUiLang, localizeDom } from '../i18n';
 
 function renderSites(disabled: string[]) {
   const container = document.getElementById('sites-list')!;
@@ -61,6 +59,7 @@ function refreshMaster(group: string) {
 }
 
 function renderTypes(enabled: string[]) {
+  const lang = uiLang();
   const container = document.getElementById('types-list')!;
   container.textContent = '';
 
@@ -110,10 +109,12 @@ function renderTypes(enabled: string[]) {
 }
 
 async function load() {
-  localizeDom();
   const settings = await loadSettings();
+  setUiLang(settings.uiLanguage); // pick language BEFORE localizing / rendering labels
+  localizeDom();
   renderTypes(settings.enabledTypes);
   renderSites(settings.guardDisabledSites);
+  (document.getElementById('ui-language') as HTMLSelectElement).value = settings.uiLanguage;
   (document.getElementById('guard-enabled') as HTMLInputElement).checked = settings.guardEnabled;
   (document.getElementById('instruction-enabled') as HTMLInputElement).checked = settings.instructionEnabled;
   (document.getElementById('language') as HTMLSelectElement).value = settings.language;
@@ -121,6 +122,14 @@ async function load() {
   document.getElementById('persist-status')!.textContent =
     (await PersistentVault.isEnabled()) ? t('options_persist_on') : t('options_persist_off');
 }
+
+// Interface language applies immediately: persist the in-progress form + the new
+// language, then re-render everything localized (so unsaved toggles aren't lost).
+document.getElementById('ui-language')?.addEventListener('change', async (e) => {
+  const uiLanguage = (e.target as HTMLSelectElement).value as Settings['uiLanguage'];
+  await saveSettings({ ...collect(), uiLanguage });
+  await load();
+});
 
 function collect(): Partial<Settings> {
   const enabledTypes = Array.from(document.querySelectorAll<HTMLInputElement>('.type-checkbox'))
@@ -137,7 +146,8 @@ function collect(): Partial<Settings> {
     guardEnabled: (document.getElementById('guard-enabled') as HTMLInputElement).checked,
     instructionEnabled: (document.getElementById('instruction-enabled') as HTMLInputElement).checked,
     language: (document.getElementById('language') as HTMLSelectElement).value as Settings['language'],
-    placeholderStyle: (document.getElementById('placeholder-style') as HTMLSelectElement).value as PlaceholderStyle
+    placeholderStyle: (document.getElementById('placeholder-style') as HTMLSelectElement).value as PlaceholderStyle,
+    uiLanguage: (document.getElementById('ui-language') as HTMLSelectElement).value as Settings['uiLanguage']
   };
 }
 
@@ -154,6 +164,8 @@ document.getElementById('save')?.addEventListener('click', async () => {
 
 document.getElementById('forget-all')?.addEventListener('click', async () => {
   await Vault.clearAll();
+  await PersistentVault.disable(); // also wipe the encrypted persistent snapshot on disk
+  document.getElementById('persist-status')!.textContent = t('options_persist_off');
   flash(t('options_forgotten'));
 });
 
@@ -176,12 +188,8 @@ importFile.addEventListener('change', async () => {
   const file = importFile.files?.[0];
   if (!file) return;
   try {
-    const parsed = JSON.parse(await file.text());
-    // Keep only known settings keys — never trust an arbitrary file wholesale.
-    const clean: Partial<Settings> = {};
-    for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]) {
-      if (key in parsed) (clean as any)[key] = parsed[key];
-    }
+    // Validate keys AND values — a malformed file must not corrupt the config.
+    const clean = sanitizeSettings(JSON.parse(await file.text()));
     await saveSettings(clean);
     await load();
     flash(t('options_imported'));

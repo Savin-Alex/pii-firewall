@@ -7,7 +7,8 @@ _Дата вступления в силу: 2026-07-04_
 **PII Firewall не собирает, не передаёт и не хранит ваши данные на серверах.**
 Всё работает локально в вашем браузере. Расширение не запрашивает ни одного
 сетевого разрешения — это можно проверить в `manifest.json` (`"permissions":
-["storage"]`, никаких `host_permissions`).
+["storage", "activeTab", "contextMenus"]` — ни одно не даёт доступа к сети,
+никаких `host_permissions`).
 
 ## Какие данные обрабатываются
 
@@ -62,8 +63,8 @@ _Effective date: 2026-07-04_
 
 **PII Firewall does not collect, transmit, or store your data on any server.**
 Everything runs locally in your browser. The extension requests **zero network
-permissions** — verifiable in `manifest.json` (`"permissions": ["storage"]`, no
-`host_permissions`).
+permissions** — verifiable in `manifest.json` (`"permissions": ["storage",
+"activeTab", "contextMenus"]` — none grant network access, no `host_permissions`).
 
 ## What data is processed
 

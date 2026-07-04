@@ -38,7 +38,7 @@
   </style>
 </head>
 <body>
-  <h1 data-i18n="options_title">Настройки PII Firewall</h1>
+  <h1><img src="icons/icon32.png" alt="" style="height:26px;vertical-align:-5px"> <span data-i18n="options_title">Настройки PII Firewall</span></h1>
 
   <h2 data-i18n="options_types">Типы данных для маскирования</h2>
   <div class="card" id="types-list"></div>
@@ -54,7 +54,15 @@
       <label class="switch"><input type="checkbox" id="instruction-enabled"><span class="slider"></span></label>
     </div>
     <div class="row">
-      <div class="info"><span class="label" data-i18n="options_language">Язык распознавания</span></div>
+      <div class="info"><span class="label" data-i18n="options_ui_language">Язык интерфейса</span><span class="desc" data-i18n="options_ui_language_desc">Popup, настройки и виджет</span></div>
+      <select id="ui-language">
+        <option value="auto" data-i18n="options_lang_auto">Авто</option>
+        <option value="ru" data-i18n="options_lang_ru">Русский</option>
+        <option value="en" data-i18n="options_lang_en">English</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="info"><span class="label" data-i18n="options_language">Язык распознавания</span><span class="desc" data-i18n="options_language_desc">Какой язык ФИО искать</span></div>
       <select id="language">
         <option value="auto" data-i18n="options_lang_auto">Авто</option>
         <option value="ru" data-i18n="options_lang_ru">Русский</option>

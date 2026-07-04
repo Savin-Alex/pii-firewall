@@ -18,7 +18,7 @@ export const PII_GROUPS: PiiGroup[] = [
   { id: 'ru', label: { ru: 'Документы РФ', en: 'Russian documents' } },
   { id: 'us', label: { ru: 'Документы США', en: 'US documents' } },
   { id: 'financial', label: { ru: 'Финансы', en: 'Financial' } },
-  { id: 'business', label: { ru: 'Реквизиты компаний (РФ)', en: 'RU company details' } },
+  { id: 'business', label: { ru: 'Реквизиты компаний', en: 'Company details' } },
   { id: 'tech', label: { ru: 'Технические и секреты', en: 'Technical & secrets' } }
 ];
 
@@ -53,9 +53,13 @@ export const PII_TYPES: PiiTypeMeta[] = [
   { id: 'CARD', group: 'financial', label: { ru: 'Банковские карты', en: 'Bank cards' }, desc: { ru: 'Номера карт (проверка Луна)', en: 'Card numbers (Luhn)' }, defaultOn: true },
   { id: 'IBAN', group: 'financial', label: { ru: 'IBAN', en: 'IBAN' }, desc: { ru: 'Счёт IBAN (mod-97)', en: 'IBAN account (mod-97)' }, defaultOn: true },
 
-  { id: 'RU_BANK_ACCOUNT', group: 'business', label: { ru: 'Расчётный / корр. счёт', en: 'RU bank account' }, desc: { ru: '20 цифр, проверка ключа по БИК', en: '20 digits, control key vs BIK' }, defaultOn: true },
-  { id: 'RU_BIK', group: 'business', label: { ru: 'БИК', en: 'BIK' }, desc: { ru: 'Банковский идентификационный код', en: 'RU bank identifier code' }, defaultOn: true },
-  { id: 'RU_KPP', group: 'business', label: { ru: 'КПП', en: 'KPP' }, desc: { ru: 'Код причины постановки на учёт', en: 'RU tax registration reason code' }, defaultOn: true },
+  { id: 'RU_BANK_ACCOUNT', group: 'business', label: { ru: 'Расчётный / корр. счёт (РФ)', en: 'RU bank account' }, desc: { ru: '20 цифр, проверка ключа по БИК', en: '20 digits, control key vs BIK' }, defaultOn: true },
+  { id: 'RU_BIK', group: 'business', label: { ru: 'БИК (РФ)', en: 'BIK' }, desc: { ru: 'Банковский идентификационный код', en: 'RU bank identifier code' }, defaultOn: true },
+  { id: 'RU_KPP', group: 'business', label: { ru: 'КПП (РФ)', en: 'KPP' }, desc: { ru: 'Код причины постановки на учёт', en: 'RU tax registration reason code' }, defaultOn: true },
+  { id: 'US_ROUTING', group: 'business', label: { ru: 'ABA routing (США)', en: 'US ABA routing' }, desc: { ru: '9 цифр, чек-сумма 3-7-1', en: '9 digits, 3-7-1 checksum' }, defaultOn: true },
+  { id: 'US_BANK_ACCOUNT', group: 'business', label: { ru: 'Банковский счёт (США)', en: 'US bank account' }, desc: { ru: 'По контексту (account/checking/savings)', en: 'By context' }, defaultOn: true },
+  { id: 'SWIFT_BIC', group: 'business', label: { ru: 'SWIFT / BIC', en: 'SWIFT / BIC' }, desc: { ru: 'Код банка для межд. переводов, по контексту', en: 'Bank code for wires, by context' }, defaultOn: true },
+  { id: 'US_DUNS', group: 'business', label: { ru: 'DUNS (США)', en: 'US DUNS' }, desc: { ru: 'Бизнес-идентификатор D&B, по контексту', en: 'D&B business id, by context' }, defaultOn: true },
 
   { id: 'IP_ADDRESS', group: 'tech', label: { ru: 'IP-адреса', en: 'IP addresses' }, desc: { ru: 'IPv4 и IPv6', en: 'IPv4 and IPv6' }, defaultOn: true },
   { id: 'SECRET', group: 'tech', label: { ru: 'Секреты', en: 'Secrets' }, desc: { ru: 'API-ключи, токены, пароли', en: 'API keys, tokens, passwords' }, defaultOn: true }
@@ -75,6 +79,8 @@ export interface Settings {
   instructionEnabled: boolean;
   /** Bracket style for placeholders. Square survives markdown sanitizers best. */
   placeholderStyle: PlaceholderStyle;
+  /** UI language for popup/options/widget. 'auto' follows the browser locale. */
+  uiLanguage: 'auto' | 'ru' | 'en';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -84,11 +90,39 @@ export const DEFAULT_SETTINGS: Settings = {
   guardEnabled: true,
   guardDisabledSites: [],
   instructionEnabled: true,
-  placeholderStyle: 'square'
+  placeholderStyle: 'square',
+  uiLanguage: 'auto'
 };
 
 const SETTINGS_KEY = 'settings';
 const STATS_KEY = 'leak_prevented_count';
+
+const KNOWN_TYPE_IDS = new Set(PII_TYPES.map(t => t.id));
+const CONFIDENCES = new Set<Confidence>(['high', 'medium', 'low']);
+const LANGUAGES = new Set(['auto', 'ru', 'en']);
+const STYLES = new Set<PlaceholderStyle>(['square', 'curly', 'guillemet']);
+
+/**
+ * Validates an untrusted object (e.g. an imported settings file): keeps only
+ * known keys whose VALUES pass a type/enum/array check. Anything malformed is
+ * dropped, so a bad import can never corrupt the running config.
+ */
+export function sanitizeSettings(raw: unknown): Partial<Settings> {
+  if (typeof raw !== 'object' || raw === null) return {};
+  const r = raw as Record<string, unknown>;
+  const out: Partial<Settings> = {};
+  if (Array.isArray(r.enabledTypes)) {
+    out.enabledTypes = r.enabledTypes.filter((x): x is string => typeof x === 'string' && KNOWN_TYPE_IDS.has(x));
+  }
+  if (typeof r.minConfidence === 'string' && CONFIDENCES.has(r.minConfidence as Confidence)) out.minConfidence = r.minConfidence as Confidence;
+  if (typeof r.language === 'string' && LANGUAGES.has(r.language)) out.language = r.language as Settings['language'];
+  if (typeof r.guardEnabled === 'boolean') out.guardEnabled = r.guardEnabled;
+  if (typeof r.instructionEnabled === 'boolean') out.instructionEnabled = r.instructionEnabled;
+  if (Array.isArray(r.guardDisabledSites)) out.guardDisabledSites = r.guardDisabledSites.filter((x): x is string => typeof x === 'string');
+  if (typeof r.placeholderStyle === 'string' && STYLES.has(r.placeholderStyle as PlaceholderStyle)) out.placeholderStyle = r.placeholderStyle as PlaceholderStyle;
+  if (typeof r.uiLanguage === 'string' && LANGUAGES.has(r.uiLanguage)) out.uiLanguage = r.uiLanguage as Settings['uiLanguage'];
+  return out;
+}
 
 function hasLocalStorage(): boolean {
   return typeof chrome !== 'undefined' && !!chrome.storage?.local;

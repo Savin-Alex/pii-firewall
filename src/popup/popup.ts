@@ -1,7 +1,7 @@
-import { Vault } from '../vault/vault';
+import { Vault, PersistentVault } from '../vault/vault';
 import { getCurrentSite } from '../content/sites';
 import { loadSettings, saveSettings, getLeakCount } from '../settings';
-import { t, localizeDom } from '../i18n';
+import { t, setUiLang, localizeDom } from '../i18n';
 
 // Synthetic sample for demo mode (checksum-valid, never real data).
 const DEMO_TEXT = 'Договор №42. Заказчик: Иванов Пётр Сергеевич, ИНН 7712345671, тел. +7 916 123-45-67, e-mail p.ivanov@example.com. Прошу подготовить акт выполненных работ.';
@@ -19,6 +19,8 @@ async function currentTab() {
 }
 
 async function updateUI() {
+  const settings = await loadSettings();
+  setUiLang(settings.uiLanguage); // pick language before localizing
   localizeDom();
   const tab = await currentTab();
   const siteNameEl = document.getElementById('site-name')!;
@@ -30,7 +32,6 @@ async function updateUI() {
   const site = host ? getCurrentSite(host) : undefined;
   siteNameEl.textContent = site ? host : t('popup_site_unsupported');
 
-  const settings = await loadSettings();
   document.getElementById('stats-count')!.textContent = String(await getLeakCount());
   await renderSessions();
 
@@ -89,6 +90,7 @@ document.getElementById('forget-session')?.addEventListener('click', async () =>
 
 document.getElementById('forget-all')?.addEventListener('click', async () => {
   await Vault.clearAll();
+  await PersistentVault.disable(); // also wipe the encrypted persistent snapshot on disk
   toast(t('popup_forgotten_all'));
 });
 

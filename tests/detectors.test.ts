@@ -5,7 +5,7 @@ import { validateBankAccount } from '../src/engine/checksums';
 import { EngineConfig } from '../src/engine/types';
 
 const defaultConfig: EngineConfig = {
-  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_DRIVER_LICENSE', 'RU_OMS', 'RU_BIK', 'RU_BANK_ACCOUNT', 'RU_KPP', 'IBAN', 'US_SSN', 'US_EIN', 'US_DRIVER_LICENSE', 'US_MEDICARE', 'IP_ADDRESS', 'PERSON', 'SECRET'],
+  enabledTypes: ['EMAIL', 'PHONE', 'CARD', 'RU_SNILS', 'RU_INN', 'RU_OGRN', 'RU_PASSPORT', 'RU_DRIVER_LICENSE', 'RU_OMS', 'RU_BIK', 'RU_BANK_ACCOUNT', 'RU_KPP', 'US_ROUTING', 'US_BANK_ACCOUNT', 'SWIFT_BIC', 'US_DUNS', 'IBAN', 'US_SSN', 'US_EIN', 'US_DRIVER_LICENSE', 'US_MEDICARE', 'IP_ADDRESS', 'PERSON', 'SECRET'],
   minConfidence: 'medium',
   language: 'auto'
 };
@@ -188,6 +188,31 @@ describe('RU banking (B2B, context-cued)', () => {
     expect(detect(`р/с ${acc} в банке, БИК ${bik}`, defaultConfig).find(d => d.type === 'RU_BANK_ACCOUNT')?.confidence).toBe('high');
     expect(detect(`расчётный счёт ${acc} уточняется`, defaultConfig).find(d => d.type === 'RU_BANK_ACCOUNT')?.confidence).toBe('medium');
     expect(detect(`число ${acc} в отчёте`, defaultConfig).some(d => d.type === 'RU_BANK_ACCOUNT')).toBe(false);
+  });
+});
+
+describe('US company / banking (context-cued)', () => {
+  it('US_ROUTING: high with context; no-context is low (dropped at default medium)', () => {
+    expect(detect('routing number 123456780', defaultConfig).find(d => d.type === 'US_ROUTING')?.confidence).toBe('high');
+    // valid ABA checksum but no routing cue -> low, so NOT surfaced at default medium
+    expect(detect('номер заказа 123456780 отгружен', defaultConfig).some(d => d.type === 'US_ROUTING')).toBe(false);
+    expect(detect('номер заказа 123456780 отгружен', { ...defaultConfig, minConfidence: 'low' }).find(d => d.type === 'US_ROUTING')?.confidence).toBe('low');
+    expect(detect('число 123456781 тут', defaultConfig).some(d => d.type === 'US_ROUTING')).toBe(false); // bad checksum
+  });
+
+  it('SWIFT_BIC only with SWIFT/BIC context', () => {
+    expect(detect('SWIFT TESTUS22ABC for the wire', defaultConfig).some(d => d.type === 'SWIFT_BIC' && d.value === 'TESTUS22ABC')).toBe(true);
+    expect(detect('label TESTUS22ABC here', defaultConfig).some(d => d.type === 'SWIFT_BIC')).toBe(false);
+  });
+
+  it('US_BANK_ACCOUNT with account context', () => {
+    expect(detect('account number 000123456789', defaultConfig).some(d => d.type === 'US_BANK_ACCOUNT')).toBe(true);
+    expect(detect('order 000123456789 shipped', defaultConfig).some(d => d.type === 'US_BANK_ACCOUNT')).toBe(false);
+  });
+
+  it('US_DUNS with DUNS context', () => {
+    expect(detect('DUNS 15-048-3782', defaultConfig).some(d => d.type === 'US_DUNS')).toBe(true);
+    expect(detect('number 150483782 in list', defaultConfig).some(d => d.type === 'US_DUNS')).toBe(false);
   });
 });
 
